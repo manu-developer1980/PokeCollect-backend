@@ -11,13 +11,37 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Configuración de CORS
+// Configuración de CORS más permisiva
+app.use(
+  cors({
+    origin: true, // Permite cualquier origen
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: [
+      "Content-Type",
+      "Authorization",
+      "X-Requested-With",
+      "Accept",
+      "Origin",
+    ],
+    credentials: true,
+    preflightContinue: false,
+    optionsSuccessStatus: 204,
+  })
+);
 
-app.use(cors());
+// Middleware para asegurar headers CORS en todas las respuestas
+app.use((req, res, next) => {
+  res.header("Access-Control-Allow-Origin", "*");
+  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+  res.header(
+    "Access-Control-Allow-Headers",
+    "Origin, X-Requested-With, Content-Type, Accept, Authorization"
+  );
 
-// Middleware para manejar OPTIONS de manera explícita
-app.options("*", (req, res) => {
-  res.status(200).end();
+  if (req.method === "OPTIONS") {
+    return res.status(204).end();
+  }
+  next();
 });
 
 app.use(express.json());
@@ -27,12 +51,6 @@ app.use(
     max: 100,
   })
 );
-
-// Normalizar rutas eliminando barras dobles
-app.use((req, res, next) => {
-  req.url = req.url.replace(/\/+/g, "/");
-  next();
-});
 
 // Rutas
 app.use("/api/pokemon", pokemonRoutes);
