@@ -11,39 +11,26 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Configuración CORS para permitir cualquier origen
+// Configuración CORS más permisiva
 app.use(
   cors({
-    origin: "*",
+    origin: true, // Permite cualquier origen
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
+    preflightContinue: false,
+    optionsSuccessStatus: 204,
   })
 );
 
-// Rate limiting
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 100,
-});
-
-// Middleware
 app.use(express.json());
-app.use(limiter);
+app.use(
+  rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 100,
+  })
+);
 
-// Middleware para asegurar headers CORS en todas las respuestas
-app.use((req, res, next) => {
-  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-  res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
-  res.header("Access-Control-Allow-Credentials", "true");
-
-  // Handle preflight
-  if (req.method === "OPTIONS") {
-    return res.status(200).end();
-  }
-  next();
-});
-
-// Rutas
+// Rutas - Asegúrate de que las rutas base sean consistentes
 app.use("/api/pokemon", pokemonRoutes);
 app.use("/api/collections", collectionRoutes);
 app.use("/api/wishlist", wishlistRoutes);
