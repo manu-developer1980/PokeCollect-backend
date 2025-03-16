@@ -11,26 +11,27 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Middleware para manejar CORS de manera más robusta
-app.use((req, res, next) => {
-  res.header("Access-Control-Allow-Origin", "*");
-  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-  res.header(
-    "Access-Control-Allow-Headers",
-    "Origin, X-Requested-With, Content-Type, Accept, Authorization"
-  );
-  res.header("Access-Control-Max-Age", "86400");
+// Configuración de CORS
+const corsOptions = {
+  origin: "*",
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: [
+    "Content-Type",
+    "Authorization",
+    "X-Requested-With",
+    "Accept",
+    "Origin",
+  ],
+  credentials: false,
+  maxAge: 86400,
+};
 
-  // Manejar solicitudes OPTIONS
-  if (req.method === "OPTIONS") {
-    return res.status(200).end();
-  }
+app.use(cors(corsOptions));
 
-  next();
+// Middleware para manejar OPTIONS de manera explícita
+app.options("*", (req, res) => {
+  res.status(200).end();
 });
-
-// Configuración básica de CORS como respaldo
-app.use(cors());
 
 app.use(express.json());
 app.use(
