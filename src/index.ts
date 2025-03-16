@@ -19,11 +19,12 @@ const corsOptions = {
     "http://127.0.0.1:5173",
     "http://127.0.0.1:5174",
     "https://poke-collect.vercel.app",
+    "https://poke-collect-backend-three.vercel.app",
   ],
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
   credentials: true,
-  maxAge: 86400, // 24 horas
+  maxAge: 86400,
 };
 
 // Rate limiting
@@ -37,19 +38,18 @@ app.use(cors(corsOptions));
 app.use(express.json());
 app.use(limiter);
 
-// Middleware para añadir headers CORS a todas las respuestas
-app.use((req, res, next) => {
-  res.header("Access-Control-Allow-Origin", req.headers.origin);
-  res.header("Access-Control-Allow-Methods", "GET,PUT,POST,DELETE,OPTIONS");
-  res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
-  res.header("Access-Control-Allow-Credentials", "true");
-
-  // Handle preflight
-  if (req.method === "OPTIONS") {
-    return res.status(200).end();
-  }
-  next();
-});
+// Elimina este middleware redundante ya que cors() ya maneja esto
+// app.use((req, res, next) => {
+//   res.header("Access-Control-Allow-Origin", req.headers.origin);
+//   res.header("Access-Control-Allow-Methods", "GET,PUT,POST,DELETE,OPTIONS");
+//   res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+//   res.header("Access-Control-Allow-Credentials", "true");
+//
+//   if (req.method === "OPTIONS") {
+//     return res.status(200).end();
+//   }
+//   next();
+// }); // Middleware para añadir headers CORS a todas las respuestas
 
 // Rutas
 app.use("/api/pokemon", pokemonRoutes);
