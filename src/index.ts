@@ -11,10 +11,30 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Configuración de CORS más permisiva
+// Lista de orígenes permitidos
+const allowedOrigins = [
+  "http://localhost:5173",
+  "http://localhost:3000",
+  "https://poke-collect.vercel.app",
+  // Añade aquí otros orígenes que necesites
+];
+
+// Configuración de CORS mejorada
 app.use(
   cors({
-    origin: true, // Permite cualquier origen
+    origin: function (origin, callback) {
+      // Permitir solicitudes sin origen (como aplicaciones móviles o curl)
+      if (!origin) return callback(null, true);
+
+      if (
+        allowedOrigins.indexOf(origin) !== -1 ||
+        process.env.NODE_ENV !== "production"
+      ) {
+        callback(null, true);
+      } else {
+        callback(new Error("No permitido por CORS"));
+      }
+    },
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: [
       "Content-Type",
@@ -28,21 +48,6 @@ app.use(
     optionsSuccessStatus: 204,
   })
 );
-
-// Middleware para asegurar headers CORS en todas las respuestas
-app.use((req, res, next) => {
-  res.header("Access-Control-Allow-Origin", "*");
-  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-  res.header(
-    "Access-Control-Allow-Headers",
-    "Origin, X-Requested-With, Content-Type, Accept, Authorization"
-  );
-
-  if (req.method === "OPTIONS") {
-    return res.status(204).end();
-  }
-  next();
-});
 
 app.use(express.json());
 app.use(
