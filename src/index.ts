@@ -12,21 +12,8 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Configuración de CORS
-const corsOptions = {
-  origin: "*",
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  allowedHeaders: [
-    "Content-Type",
-    "Authorization",
-    "X-Requested-With",
-    "Accept",
-    "Origin",
-  ],
-  credentials: false,
-  maxAge: 86400,
-};
 
-app.use(cors(corsOptions));
+app.use(cors());
 
 // Middleware para manejar OPTIONS de manera explícita
 app.options("*", (req, res) => {
