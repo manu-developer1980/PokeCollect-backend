@@ -1,20 +1,26 @@
-import fetch from 'node-fetch';
-import { PokemonCardSearchParams, PokemonCardSearchResponse } from '../types/pokemon';
+import fetch from "node-fetch";
+import {
+  PokemonCardSearchParams,
+  PokemonCardSearchResponse,
+} from "../types/pokemon";
 
 const POKEMON_TCG_API_BASE = "https://api.pokemontcg.io/v2";
 const API_KEY = process.env.POKEMON_TCG_API_KEY;
 
 const headers = {
-  'Content-Type': 'application/json',
-  'X-Api-Key': API_KEY as string
+  "Content-Type": "application/json",
+  "X-Api-Key": API_KEY as string,
 };
 
-export async function searchCards(params: PokemonCardSearchParams): Promise<PokemonCardSearchResponse> {
+export async function searchCards(
+  params: PokemonCardSearchParams
+): Promise<PokemonCardSearchResponse> {
   const queryParams = new URLSearchParams();
 
   if (params.q) queryParams.append("q", params.q);
   if (params.page) queryParams.append("page", params.page.toString());
-  if (params.pageSize) queryParams.append("pageSize", params.pageSize.toString());
+  if (params.pageSize)
+    queryParams.append("pageSize", params.pageSize.toString());
   if (params.orderBy) queryParams.append("orderBy", params.orderBy);
 
   try {
@@ -26,8 +32,7 @@ export async function searchCards(params: PokemonCardSearchParams): Promise<Poke
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
-
-    const data = await response.json();
+    const data = (await response.json()) as any; // Usamos 'any' temporalmente
 
     return {
       data: data.data || [],
@@ -50,8 +55,10 @@ export async function searchCards(params: PokemonCardSearchParams): Promise<Poke
 
 export async function getCardById(id: string) {
   try {
-    const response = await fetch(`${POKEMON_TCG_API_BASE}/cards/${id}`, { headers });
-    
+    const response = await fetch(`${POKEMON_TCG_API_BASE}/cards/${id}`, {
+      headers,
+    });
+
     if (!response.ok) {
       throw new Error(`Error fetching card: ${response.statusText}`);
     }
@@ -73,7 +80,7 @@ export async function getCardById(id: string) {
 
 export async function getSets() {
   const response = await fetch(`${POKEMON_TCG_API_BASE}/sets`, { headers });
-  
+
   if (!response.ok) {
     throw new Error(`Error fetching sets: ${response.statusText}`);
   }
@@ -84,7 +91,7 @@ export async function getSets() {
 
 export async function getTypes() {
   const response = await fetch(`${POKEMON_TCG_API_BASE}/types`, { headers });
-  
+
   if (!response.ok) {
     throw new Error(`Error fetching types: ${response.statusText}`);
   }
@@ -95,7 +102,7 @@ export async function getTypes() {
 
 export async function getRarities() {
   const response = await fetch(`${POKEMON_TCG_API_BASE}/rarities`, { headers });
-  
+
   if (!response.ok) {
     throw new Error(`Error fetching rarities: ${response.statusText}`);
   }

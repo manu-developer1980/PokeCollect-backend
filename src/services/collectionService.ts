@@ -1,5 +1,6 @@
 import { supabase } from "../config/supabase.js";
-import { CollectionCard, Collection } from "../types/database.js";
+// Necesitamos crear este archivo si no existe
+import { WishlistCard } from "../types/database.js";
 
 export async function getCollectionsByUserId(userId: string) {
   const { data, error } = await supabase

@@ -2,11 +2,10 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import rateLimit from "express-rate-limit";
-import { corsMiddleware } from "./middleware/corsMiddleware";
-import pokemonRoutes from "./routes/pokemon";
-import collectionRoutes from "./routes/collections";
-import wishlistRoutes from "./routes/wishlist";
-
+import { corsMiddleware } from "./middleware/corsMiddleware.js";
+import pokemonRoutes from "./routes/pokemon.js";
+import collectionRoutes from "./routes/collections.js";
+import wishlistRoutes from "./routes/wishlist.js";
 dotenv.config();
 
 const app = express();
