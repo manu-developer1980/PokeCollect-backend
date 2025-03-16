@@ -11,16 +11,26 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Configuración CORS más permisiva
-app.use(
-  cors({
-    origin: true, // Permite cualquier origen
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
-    preflightContinue: false,
-    optionsSuccessStatus: 204,
-  })
-);
+// Middleware para manejar CORS de manera más robusta
+app.use((req, res, next) => {
+  res.header("Access-Control-Allow-Origin", "*");
+  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+  res.header(
+    "Access-Control-Allow-Headers",
+    "Origin, X-Requested-With, Content-Type, Accept, Authorization"
+  );
+  res.header("Access-Control-Max-Age", "86400");
+
+  // Manejar solicitudes OPTIONS
+  if (req.method === "OPTIONS") {
+    return res.status(200).end();
+  }
+
+  next();
+});
+
+// Configuración básica de CORS como respaldo
+app.use(cors());
 
 app.use(express.json());
 app.use(
@@ -30,7 +40,13 @@ app.use(
   })
 );
 
-// Rutas - Asegúrate de que las rutas base sean consistentes
+// Normalizar rutas eliminando barras dobles
+app.use((req, res, next) => {
+  req.url = req.url.replace(/\/+/g, "/");
+  next();
+});
+
+// Rutas
 app.use("/api/pokemon", pokemonRoutes);
 app.use("/api/collections", collectionRoutes);
 app.use("/api/wishlist", wishlistRoutes);
@@ -39,6 +55,19 @@ app.use("/api/wishlist", wishlistRoutes);
 app.get("/health", (req, res) => {
   res.json({ status: "ok" });
 });
+
+// Manejador de errores global
+app.use(
+  (
+    err: any,
+    req: express.Request,
+    res: express.Response,
+    next: express.NextFunction
+  ) => {
+    console.error(err.stack);
+    res.status(500).json({ error: "Something broke!" });
+  }
+);
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
