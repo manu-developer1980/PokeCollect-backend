@@ -1,59 +1,54 @@
-Limport express from 'express';
-import * as collectionService from '../services/collectionService';
-import { validateAuth } from '../middleware/auth';
+import express from "express";
+import { validateAuth } from "../middleware/auth.js";
 
 const router = express.Router();
 
 // Todas las rutas requieren autenticación
 router.use(validateAuth);
 
-router.get('/', async (req, res) => {
+router.get("/", async (req, res) => {
   try {
-    const collections = await collectionService.getCollectionsByUserId(req.user.id);
-    res.json({ data: collections });
+    // Implementa la lógica para obtener colecciones
+    res.json({ data: [] });
   } catch (error) {
-    res.status(500).json({ error: 'Failed to fetch collections' });
+    res.status(500).json({ error: "Failed to fetch collections" });
   }
 });
 
-router.get('/:collectionId/cards', async (req, res) => {
+router.post("/", async (req, res) => {
   try {
-    const cards = await collectionService.getCollectionCards(req.params.collectionId);
-    res.json({ data: cards });
+    // Implementa la lógica para crear una colección
+    res.status(201).json({ data: {} });
   } catch (error) {
-    res.status(500).json({ error: 'Failed to fetch collection cards' });
+    res.status(500).json({ error: "Failed to create collection" });
   }
 });
 
-router.post('/', async (req, res) => {
+router.get("/:id", async (req, res) => {
   try {
-    const collection = await collectionService.createCollection({
-      ...req.body,
-      user_id: req.user.id
-    });
-    res.status(201).json({ data: collection });
+    // Implementa la lógica para obtener una colección por ID
+    res.json({ data: {} });
   } catch (error) {
-    res.status(500).json({ error: 'Failed to create collection' });
+    res.status(500).json({ error: "Failed to fetch collection" });
   }
 });
 
-router.post('/:collectionId/cards', async (req, res) => {
+router.put("/:id", async (req, res) => {
   try {
-    const card = await collectionService.addCardToCollection({
-      ...req.body,
-      collection_id: req.params.collectionId
-    });
-    res.status(201).json({ data: card });
+    // Implementa la lógica para actualizar una colección
+    res.json({ data: {} });
   } catch (error) {
-    res.status(500).json({ error: 'Failed to add card to collection' });
+    res.status(500).json({ error: "Failed to update collection" });
   }
 });
 
-router.delete('/:collectionId/cards/:cardId', async (req, res) => {
+router.delete("/:id", async (req, res) => {
   try {
-    await collectionService.removeCardFromCollection(req.params.cardId);
+    // Implementa la lógica para eliminar una colección
     res.status(204).send();
   } catch (error) {
-    res.status(500).json({ error: 'Failed to remove card from collection' });
+    res.status(500).json({ error: "Failed to delete collection" });
   }
 });
+
+export default router;
