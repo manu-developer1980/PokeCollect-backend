@@ -22,7 +22,7 @@ async function fetchWithRetry(url: string, retries = 3, delay = 1000) {
 
 // Controlador para buscar cartas
 export const searchCards = async (req: Request, res: Response) => {
-  const { q, page, pageSize, orderBy, set } = req.query;
+  const { q, page, pageSize, orderBy, set, rarity } = req.query;
 
   try {
     let queryString = "";
@@ -34,6 +34,12 @@ export const searchCards = async (req: Request, res: Response) => {
     if (set && set !== "all") {
       const setQuery = q ? ` set.id:"${set}"` : `q=set.id:"${set}"`;
       queryString += setQuery;
+    }
+
+    // Añadir filtro por rareza si está presente
+    if (rarity && rarity !== "all") {
+      const rarityQuery = queryString.includes('q=') ? ` rarity:"${rarity}"` : `q=rarity:"${rarity}"`;
+      queryString += rarityQuery;
     }
 
     // Añadir paginación y ordenación
