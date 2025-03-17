@@ -22,11 +22,21 @@ async function fetchWithRetry(url: string, retries = 3, delay = 1000) {
 
 // Controlador para buscar cartas
 export const searchCards = async (req: Request, res: Response) => {
-  const { q, page, pageSize, orderBy } = req.query;
+  const { q, page, pageSize, orderBy, set } = req.query;
 
   try {
     let queryString = "";
+
+    // Construir la query base
     if (q) queryString += `q=${q}&`;
+
+    // Añadir filtro por set si está presente
+    if (set && set !== "all") {
+      const setQuery = q ? ` set.id:"${set}"` : `q=set.id:"${set}"`;
+      queryString += setQuery;
+    }
+
+    // Añadir paginación y ordenación
     if (page) queryString += `page=${page}&`;
     if (pageSize) queryString += `pageSize=${pageSize}&`;
     if (orderBy) queryString += `orderBy=${orderBy}`;
@@ -79,87 +89,6 @@ export const getSets = async (_req: Request, res: Response) => {
   try {
     const response = await axios.get(`${POKEMON_TCG_API_BASE}/sets`, {
       headers: apiHeaders,
-    });
-    res.json(response.data);
-  } catch (error) {
-    console.error("Error fetching sets:", error);
-    res.status(500).json({ error: "Failed to fetch sets", data: [] });
-  }
-};
-
-// Controlador para obtener tipos
-export const getTypes = async (_req: Request, res: Response) => {
-  try {
-    const response = await axios.get(`${POKEMON_TCG_API_BASE}/types`, {
-      headers: apiHeaders,
-    });
-    res.json(response.data);
-  } catch (error) {
-    console.error("Error fetching types:", error);
-    res.status(500).json({ error: "Failed to fetch types", data: [] });
-  }
-};
-
-// Controlador para obtener raridades
-export const getRarities = async (_req: Request, res: Response) => {
-  try {
-    const response = await axios.get(`${POKEMON_TCG_API_BASE}/rarities`, {
-      headers: apiHeaders,
-    });
-    res.json(response.data);
-  } catch (error) {
-    console.error("Error fetching rarities:", error);
-    res.status(500).json({ error: "Failed to fetch rarities", data: [] });
-  }
-};
-
-// Controlador para buscar cartas
-export const searchCards = async (req: Request, res: Response) => {
-  const { q, page, pageSize, orderBy, set } = req.query;
-
-  try {
-    let queryString = "";
-
-    // Construir la query base
-    if (q) queryString += `q=${q}&`;
-
-    // Añadir filtro por set si está presente
-    if (set && set !== "all") {
-      const setQuery = q ? ` set.id:"${set}"` : `q=set.id:"${set}"`;
-      queryString += setQuery;
-    }
-
-    // Añadir paginación y ordenación
-    if (page) queryString += `page=${page}&`;
-    if (pageSize) queryString += `pageSize=${pageSize}&`;
-    if (orderBy) queryString += `orderBy=${orderBy}`;
-
-    const response = await axios.get(
-      `${POKEMON_TCG_API_BASE}/cards?${queryString}`,
-      {
-        headers: apiHeaders,
-      }
-    );
-
-    res.json(response.data);
-  } catch (error) {
-    console.error("API request failed:", error);
-    res.status(500).json({
-      data: [],
-      page: 1,
-      pageSize: 20,
-      count: 0,
-      totalCount: 0,
-      error: "Failed to fetch cards",
-    });
-  }
-};
-
-// Controlador para obtener sets
-export const getSets = async (_req: Request, res: Response) => {
-  try {
-    const response = await axios.get(`${POKEMON_TCG_API_BASE}/sets`, {
-      headers: apiHeaders,
       params: {
         orderBy: "-releaseDate", // Ordenar por fecha de lanzamiento, más recientes primero
       },
@@ -187,5 +116,33 @@ export const getSets = async (_req: Request, res: Response) => {
       error: "Failed to fetch sets",
       data: [],
     });
+  }
+};
+
+// Controlador para obtener tipos
+export const getTypes = async (_req: Request, res: Response) => {
+  try {
+    const response = await axios.get(`${POKEMON_TCG_API_BASE}/types`, {
+      headers: apiHeaders,
+    });
+    res.json(response.data);
+  } catch (error) {
+    console.error("Error fetching types:", error);
+    res.status(500).json({ error: "Failed to fetch types", data: [] });
+  }
+};
+
+// Controlador para obtener raridades
+export const getRarities = async (_req: Request, res: Response) => {
+  try {
+    const response = await axios.get(`${POKEMON_TCG_API_BASE}/rarities`, {
+      headers: apiHeaders,
+    });
+
+    res.header("Access-Control-Allow-Origin", "*");
+    res.json(response.data);
+  } catch (error) {
+    console.error("Error fetching rarities:", error);
+    res.status(500).json({ error: "Failed to fetch rarities", data: [] });
   }
 };
