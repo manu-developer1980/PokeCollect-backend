@@ -12,14 +12,28 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Configuración de CORS más específica
+// Configuración de CORS mejorada
 app.use(
   cors({
-    origin: [
-      "http://localhost:5173", // URL de desarrollo
-      "http://localhost:3000", // URL alternativa de desarrollo
-      "https://poke-collector.netlify.app", // URL de producción (ajusta según tu dominio)
-    ],
+    origin: function (origin, callback) {
+      // Permitir requests sin origin (como Postman) en desarrollo
+      if (!origin) return callback(null, true);
+      
+      const allowedOrigins = [
+        "http://localhost:5173", // URL de desarrollo Vite
+        "http://localhost:5174", // URL de desarrollo Vite alternativa
+        "http://localhost:3000", // URL alternativa de desarrollo
+        "https://poke-collector.netlify.app", // URL de producción
+        "https://pokecollector.netlify.app", // URL alternativa de producción
+      ];
+      
+      if (allowedOrigins.indexOf(origin) !== -1) {
+        callback(null, true);
+      } else {
+        console.log(`CORS: Origin ${origin} not allowed`);
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: [
       "Content-Type",
@@ -30,22 +44,11 @@ app.use(
     ],
     credentials: true,
     maxAge: 86400, // Cache preflight requests for 24 hours
+    optionsSuccessStatus: 200 // Para navegadores legacy
   })
 );
 
 app.use(express.json());
-
-// Middleware para establecer headers CORS en todas las rutas
-app.use((req, res, next) => {
-  res.header("Access-Control-Allow-Origin", req.headers.origin);
-  res.header("Access-Control-Allow-Credentials", "true");
-  res.header(
-    "Access-Control-Allow-Headers",
-    "Origin, X-Requested-With, Content-Type, Accept, Authorization"
-  );
-  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-  next();
-});
 
 // Rutas
 app.use("/api/pokemon", pokemonRoutes);
