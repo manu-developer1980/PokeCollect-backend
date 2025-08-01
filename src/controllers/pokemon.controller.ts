@@ -32,9 +32,9 @@ async function fetchWithRetry(url: string, retries = 3, delay = 1000) {
         return response.data;
       } catch (error) {
         console.error(`❌ Error en intento ${i + 1}/${retries}:`, {
-          message: error.message,
-          status: error.response?.status,
-          statusText: error.response?.statusText,
+          message: error instanceof Error ? error.message : 'Error desconocido',
+          status: (error as any)?.response?.status,
+          statusText: (error as any)?.response?.statusText,
           url
         });
         if (i === retries - 1) throw error;
