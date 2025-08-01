@@ -81,16 +81,19 @@ export const sendContactMessage = async (req: Request, res: Response) => {
     };
 
     // Enviar email usando el servicio de email
+    console.log('🔄 Enviando email con datos:', sanitizedData);
     const result = await sendContactFormEmail(sanitizedData);
+    console.log('📧 Resultado del servicio de email:', result);
 
     if (result.success) {
+      console.log('✅ Email enviado exitosamente, devolviendo respuesta positiva');
       res.status(200).json({
         success: true,
         message: "Mensaje enviado correctamente",
         messageId: result.messageId
       });
     } else {
-      console.error('Error al enviar email:', result.error);
+      console.error('❌ Error al enviar email:', result.error);
       res.status(500).json({
         success: false,
         error: "Error interno del servidor al enviar el mensaje"
