@@ -3,6 +3,7 @@ import cors from "cors";
 import dotenv from "dotenv";
 import pokemonRoutes from "./routes/pokemon.routes";
 import collectionsRoutes from "./routes/collections.routes";
+import contactRoutes from "./routes/contact.routes";
 
 dotenv.config();
 
@@ -47,6 +48,7 @@ app.use((req, res, next) => {
 // Rutas
 app.use("/api/pokemon", pokemonRoutes);
 app.use("/api/collections", collectionsRoutes);
+app.use("/api/contact", contactRoutes);
 
 app.get("/api/health", (req, res) => {
   res.json({ status: "ok", message: "API funcionando correctamente" });
