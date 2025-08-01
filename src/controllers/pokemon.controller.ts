@@ -9,14 +9,34 @@ const API_KEY = process.env.POKEMON_TCG_API_KEY || "";
 // Configuración de headers para la API de Pokémon TCG
 const apiHeaders = API_KEY ? { "X-Api-Key": API_KEY } : {};
 
+// Log de configuración inicial
+console.log('🔧 Configuración API:', {
+  hasApiKey: !!API_KEY,
+  apiKeyLength: API_KEY.length,
+  baseUrl: POKEMON_TCG_API_BASE
+});
+
 // Función de utilidad para reintentar peticiones con rate limiting
 async function fetchWithRetry(url: string, retries = 3, delay = 1000) {
   return externalAPILimiter.execute(async () => {
+    console.log('🌐 Petición a API externa:', { url, headers: apiHeaders });
+    
     for (let i = 0; i < retries; i++) {
       try {
         const response = await axios.get(url, { headers: apiHeaders });
+        console.log('✅ Respuesta exitosa de API externa:', {
+          status: response.status,
+          dataCount: response.data?.data?.length || 0,
+          totalCount: response.data?.totalCount || 0
+        });
         return response.data;
       } catch (error) {
+        console.error(`❌ Error en intento ${i + 1}/${retries}:`, {
+          message: error.message,
+          status: error.response?.status,
+          statusText: error.response?.statusText,
+          url
+        });
         if (i === retries - 1) throw error;
         await new Promise((resolve) => setTimeout(resolve, delay * Math.pow(2, i))); // Backoff exponencial
       }
