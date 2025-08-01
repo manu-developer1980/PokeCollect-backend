@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { sendContactFormEmail } from "../lib/email-service";
+import { brevoService } from "../lib/brevo-service";
 
 // Interfaz para los datos del formulario de contacto
 interface ContactFormData {
@@ -80,9 +80,9 @@ export const sendContactMessage = async (req: Request, res: Response) => {
       message: sanitizeText(message)
     };
 
-    // Enviar email usando el servicio de email
+    // Enviar email usando el nuevo servicio de Brevo
     console.log('🔄 Enviando email con datos:', sanitizedData);
-    const result = await sendContactFormEmail(sanitizedData);
+    const result = await brevoService.sendContactFormEmail(sanitizedData);
     console.log('📧 Resultado del servicio de email:', result);
 
     if (result.success) {
@@ -96,7 +96,7 @@ export const sendContactMessage = async (req: Request, res: Response) => {
       console.error('❌ Error al enviar email:', result.error);
       res.status(500).json({
         success: false,
-        error: "Error interno del servidor al enviar el mensaje"
+        error: result.error || "Error interno del servidor al enviar el mensaje"
       });
     }
   } catch (error) {

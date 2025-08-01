@@ -1,5 +1,6 @@
 import { Router } from "express";
 import * as pokemonController from "../controllers/pokemon.controller";
+import { rateLimiters } from "../lib/rate-limiter";
 
 const router = Router();
 
@@ -14,11 +15,18 @@ router.use((req, res, next) => {
   next();
 });
 
-// Rutas para la API de Pokémon
-router.get("/cards", pokemonController.searchCards);
+// Aplicar rate limiting general a todas las rutas
+router.use(rateLimiters.general.middleware());
+
+// Rutas para la API de Pokémon con rate limiting específico
+router.get("/cards", rateLimiters.pokemonSearch.middleware(), pokemonController.searchCards);
 router.get("/cards/:id", pokemonController.getCardById);
-router.get("/sets", pokemonController.getSets);
-router.get("/types", pokemonController.getTypes);
-router.get("/rarities", pokemonController.getRarities);
+router.get("/sets", rateLimiters.staticData.middleware(), pokemonController.getSets);
+router.get("/types", rateLimiters.staticData.middleware(), pokemonController.getTypes);
+router.get("/rarities", rateLimiters.staticData.middleware(), pokemonController.getRarities);
+
+// Rutas administrativas para el caché
+router.get("/cache/stats", pokemonController.getCacheStats);
+router.delete("/cache", pokemonController.clearCache);
 
 export default router;

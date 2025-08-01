@@ -1,0 +1,367 @@
+import Stripe from 'stripe';
+import { cacheService } from './cache-service';
+
+// Inicializar Stripe solo si hay clave API
+const stripeKey = process.env.STRIPE_SECRET_KEY;
+const stripe = stripeKey ? new Stripe(stripeKey, {
+  apiVersion: '2025-07-30.basil',
+}) : null;
+
+// Helper para verificar si Stripe está configurado
+function ensureStripeConfigured(): Stripe {
+  if (!stripe) {
+    throw new Error('Stripe no está configurado. Verifica que STRIPE_SECRET_KEY esté definida en las variables de entorno.');
+  }
+  return stripe;
+}
+
+// Tipos para TypeScript
+interface SubscriptionPlan {
+  id: string;
+  name: string;
+  description: string;
+  price: number;
+  currency: string;
+  interval: 'month' | 'year';
+  features: string[];
+  cardLimit: number;
+  collectionLimit: number;
+  wishlistLimit: number;
+  hasAdvancedSearch: boolean;
+  stripePriceId: string;
+}
+
+interface CreateCheckoutSessionParams {
+  priceId: string;
+  userId: string;
+  userEmail: string;
+  successUrl: string;
+  cancelUrl: string;
+}
+
+interface WebhookEvent {
+  type: string;
+  data: {
+    object: any;
+  };
+}
+
+/**
+ * Servicio centralizado para manejar Stripe
+ */
+export class StripeService {
+  private static instance: StripeService;
+
+  private constructor() {}
+
+  public static getInstance(): StripeService {
+    if (!StripeService.instance) {
+      StripeService.instance = new StripeService();
+    }
+    return StripeService.instance;
+  }
+
+  /**
+   * Planes de suscripción disponibles
+   */
+  static readonly SUBSCRIPTION_PLANS: Record<string, SubscriptionPlan> = {
+    free: {
+      id: 'free',
+      name: 'Gratuito',
+      description: 'Plan básico para comenzar',
+      price: 0,
+      currency: 'eur',
+      interval: 'month',
+      features: ['Búsqueda básica', 'Colección personal'],
+      cardLimit: 100,
+      collectionLimit: 3,
+      wishlistLimit: 50,
+      hasAdvancedSearch: false,
+      stripePriceId: ''
+    },
+    premium: {
+      id: 'premium',
+      name: 'Premium',
+      description: 'Plan avanzado con todas las funcionalidades',
+      price: 9.99,
+      currency: 'eur',
+      interval: 'month',
+      features: [
+        'Búsqueda avanzada',
+        'Colecciones ilimitadas',
+        'Lista de deseos extendida',
+        'Estadísticas detalladas',
+        'Soporte prioritario'
+      ],
+      cardLimit: -1, // Ilimitado
+      collectionLimit: -1, // Ilimitado
+      wishlistLimit: -1, // Ilimitado
+      hasAdvancedSearch: true,
+      stripePriceId: process.env.STRIPE_PREMIUM_PRICE_ID || ''
+    }
+  };
+
+  /**
+   * Crea una sesión de checkout de Stripe
+   */
+  async createCheckoutSession(params: CreateCheckoutSessionParams): Promise<Stripe.Checkout.Session> {
+    try {
+      const stripeInstance = ensureStripeConfigured();
+      const session = await stripeInstance.checkout.sessions.create({
+        payment_method_types: ['card'],
+        line_items: [
+          {
+            price: params.priceId,
+            quantity: 1,
+          },
+        ],
+        mode: 'subscription',
+        success_url: params.successUrl,
+        cancel_url: params.cancelUrl,
+        customer_email: params.userEmail,
+        metadata: {
+          userId: params.userId,
+        },
+        subscription_data: {
+          metadata: {
+            userId: params.userId,
+          },
+        },
+      });
+
+      console.log(`✅ Sesión de checkout creada para usuario ${params.userId}:`, session.id);
+      return session;
+    } catch (error) {
+      console.error('❌ Error creando sesión de checkout:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Obtiene información de una suscripción
+   */
+  async getSubscription(subscriptionId: string): Promise<Stripe.Subscription | null> {
+    try {
+      const cacheKey = `stripe:subscription:${subscriptionId}`;
+      
+      // Intentar obtener del caché primero
+      const cachedSubscription = cacheService.get<Stripe.Subscription>(cacheKey);
+      if (cachedSubscription) {
+        console.log(`🎯 Suscripción ${subscriptionId} devuelta desde caché`);
+        return cachedSubscription;
+      }
+
+      const stripeInstance = ensureStripeConfigured();
+      const subscription = await stripeInstance.subscriptions.retrieve(subscriptionId);
+      
+      // Guardar en caché por 5 minutos
+      cacheService.set(cacheKey, subscription, 300);
+      console.log(`💾 Suscripción ${subscriptionId} guardada en caché`);
+      
+      return subscription;
+    } catch (error) {
+      console.error(`❌ Error obteniendo suscripción ${subscriptionId}:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Cancela una suscripción
+   */
+  async cancelSubscription(subscriptionId: string): Promise<Stripe.Subscription> {
+    try {
+      const stripeInstance = ensureStripeConfigured();
+      const subscription = await stripeInstance.subscriptions.update(subscriptionId, {
+        cancel_at_period_end: true,
+      });
+
+      // Limpiar caché
+      const cacheKey = `stripe:subscription:${subscriptionId}`;
+      cacheService.del(cacheKey);
+
+      console.log(`✅ Suscripción ${subscriptionId} marcada para cancelación`);
+      return subscription;
+    } catch (error) {
+      console.error(`❌ Error cancelando suscripción ${subscriptionId}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Reactiva una suscripción cancelada
+   */
+  async reactivateSubscription(subscriptionId: string): Promise<Stripe.Subscription> {
+    try {
+      const stripeInstance = ensureStripeConfigured();
+      const subscription = await stripeInstance.subscriptions.update(subscriptionId, {
+        cancel_at_period_end: false,
+      });
+
+      // Limpiar caché
+      const cacheKey = `stripe:subscription:${subscriptionId}`;
+      cacheService.del(cacheKey);
+
+      console.log(`✅ Suscripción ${subscriptionId} reactivada`);
+      return subscription;
+    } catch (error) {
+      console.error(`❌ Error reactivando suscripción ${subscriptionId}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Obtiene el historial de facturas de un cliente
+   */
+  async getCustomerInvoices(customerId: string, limit: number = 10): Promise<Stripe.Invoice[]> {
+    try {
+      const cacheKey = `stripe:invoices:${customerId}:${limit}`;
+      
+      // Intentar obtener del caché primero
+      const cachedInvoices = cacheService.get<Stripe.Invoice[]>(cacheKey);
+      if (cachedInvoices) {
+        console.log(`🎯 Facturas del cliente ${customerId} devueltas desde caché`);
+        return cachedInvoices;
+      }
+
+      const stripeInstance = ensureStripeConfigured();
+      const invoices = await stripeInstance.invoices.list({
+        customer: customerId,
+        limit,
+      });
+
+      // Guardar en caché por 10 minutos
+      cacheService.set(cacheKey, invoices.data, 600);
+      console.log(`💾 Facturas del cliente ${customerId} guardadas en caché`);
+      
+      return invoices.data;
+    } catch (error) {
+      console.error(`❌ Error obteniendo facturas del cliente ${customerId}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Verifica y procesa un webhook de Stripe
+   */
+  async processWebhook(payload: string, signature: string): Promise<WebhookEvent | null> {
+    try {
+      const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
+      if (!endpointSecret) {
+        throw new Error('STRIPE_WEBHOOK_SECRET no configurado');
+      }
+
+      const stripeInstance = ensureStripeConfigured();
+      const event = stripeInstance.webhooks.constructEvent(payload, signature, endpointSecret);
+      
+      console.log(`📨 Webhook recibido: ${event.type}`);
+      
+      // Procesar diferentes tipos de eventos
+      switch (event.type) {
+        case 'customer.subscription.created':
+          await this.handleSubscriptionCreated(event.data.object as Stripe.Subscription);
+          break;
+        case 'customer.subscription.updated':
+          await this.handleSubscriptionUpdated(event.data.object as Stripe.Subscription);
+          break;
+        case 'customer.subscription.deleted':
+          await this.handleSubscriptionDeleted(event.data.object as Stripe.Subscription);
+          break;
+        case 'invoice.payment_succeeded':
+          await this.handlePaymentSucceeded(event.data.object as Stripe.Invoice);
+          break;
+        case 'invoice.payment_failed':
+          await this.handlePaymentFailed(event.data.object as Stripe.Invoice);
+          break;
+        default:
+          console.log(`⚠️ Evento no manejado: ${event.type}`);
+      }
+
+      return event;
+    } catch (error) {
+      console.error('❌ Error procesando webhook:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Maneja la creación de una nueva suscripción
+   */
+  private async handleSubscriptionCreated(subscription: Stripe.Subscription): Promise<void> {
+    console.log(`🎉 Nueva suscripción creada: ${subscription.id}`);
+    // Aquí se podría actualizar la base de datos del usuario
+    // Por ejemplo, actualizar el plan en Supabase
+  }
+
+  /**
+   * Maneja la actualización de una suscripción
+   */
+  private async handleSubscriptionUpdated(subscription: Stripe.Subscription): Promise<void> {
+    console.log(`🔄 Suscripción actualizada: ${subscription.id}`);
+    
+    // Limpiar caché de la suscripción
+    const cacheKey = `stripe:subscription:${subscription.id}`;
+    cacheService.del(cacheKey);
+  }
+
+  /**
+   * Maneja la eliminación de una suscripción
+   */
+  private async handleSubscriptionDeleted(subscription: Stripe.Subscription): Promise<void> {
+    console.log(`🗑️ Suscripción eliminada: ${subscription.id}`);
+    
+    // Limpiar caché de la suscripción
+    const cacheKey = `stripe:subscription:${subscription.id}`;
+    cacheService.del(cacheKey);
+  }
+
+  /**
+   * Maneja un pago exitoso
+   */
+  private async handlePaymentSucceeded(invoice: Stripe.Invoice): Promise<void> {
+    console.log(`💰 Pago exitoso para factura: ${invoice.id}`);
+    // Aquí se podría enviar un email de confirmación
+  }
+
+  /**
+   * Maneja un pago fallido
+   */
+  private async handlePaymentFailed(invoice: Stripe.Invoice): Promise<void> {
+    console.log(`❌ Pago fallido para factura: ${invoice.id}`);
+    // Aquí se podría enviar un email de notificación
+  }
+
+  /**
+   * Obtiene las características de un plan
+   */
+  static getPlanFeatures(planId: string): SubscriptionPlan | null {
+    return this.SUBSCRIPTION_PLANS[planId] || null;
+  }
+
+  /**
+   * Verifica si un usuario puede realizar una acción basada en su plan
+   */
+  static canPerformAction(
+    planId: string,
+    action: 'addCard' | 'createCollection' | 'addToWishlist' | 'advancedSearch',
+    currentCount?: number
+  ): boolean {
+    const plan = this.getPlanFeatures(planId);
+    if (!plan) return false;
+
+    switch (action) {
+      case 'addCard':
+        return plan.cardLimit === -1 || (currentCount || 0) < plan.cardLimit;
+      case 'createCollection':
+        return plan.collectionLimit === -1 || (currentCount || 0) < plan.collectionLimit;
+      case 'addToWishlist':
+        return plan.wishlistLimit === -1 || (currentCount || 0) < plan.wishlistLimit;
+      case 'advancedSearch':
+        return plan.hasAdvancedSearch;
+      default:
+        return false;
+    }
+  }
+}
+
+// Exportar instancia singleton
+export const stripeService = StripeService.getInstance();

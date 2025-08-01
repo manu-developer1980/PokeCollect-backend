@@ -4,6 +4,8 @@ import dotenv from "dotenv";
 import pokemonRoutes from "./routes/pokemon.routes";
 import collectionsRoutes from "./routes/collections.routes";
 import contactRoutes from "./routes/contact.routes";
+import stripeRoutes from "./routes/stripe.routes";
+import brevoRoutes from "./routes/brevo.routes";
 
 dotenv.config();
 
@@ -49,6 +51,8 @@ app.use((req, res, next) => {
 app.use("/api/pokemon", pokemonRoutes);
 app.use("/api/collections", collectionsRoutes);
 app.use("/api/contact", contactRoutes);
+app.use("/api/stripe", stripeRoutes);
+app.use("/api/brevo", brevoRoutes);
 
 app.get("/api/health", (req, res) => {
   res.json({ status: "ok", message: "API funcionando correctamente" });
