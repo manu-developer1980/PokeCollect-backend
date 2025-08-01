@@ -46,31 +46,43 @@ export const searchCards = async (req: Request, res: Response) => {
       return res.json(cachedResult);
     }
 
-    let queryString = "";
+    // Construir los parámetros de la URL
+    const params = new URLSearchParams();
 
-    // Construir la query base
-    if (q) queryString += `q=${q}&`;
+    // Añadir el parámetro de búsqueda principal
+    if (q) {
+      params.append('q', q as string);
+    }
 
     // Añadir filtro por set si está presente
     if (set && set !== "all") {
-      const setQuery = q ? ` set.id:"${set}"` : `q=set.id:"${set}"`;
-      queryString += setQuery;
+      const currentQ = params.get('q') || '';
+      const newQ = currentQ ? `${currentQ} set.id:"${set}"` : `set.id:"${set}"`;
+      params.set('q', newQ);
     }
 
     // Añadir filtro por rareza si está presente
     if (rarity && rarity !== "all") {
-      const rarityQuery = queryString.includes('q=') ? ` rarity:"${rarity}"` : `q=rarity:"${rarity}"`;
-      queryString += rarityQuery;
+      const currentQ = params.get('q') || '';
+      const newQ = currentQ ? `${currentQ} rarity:"${rarity}"` : `rarity:"${rarity}"`;
+      params.set('q', newQ);
     }
 
     // Añadir paginación y ordenación
-    if (page) queryString += `page=${page}&`;
-    if (pageSize) queryString += `pageSize=${pageSize}&`;
-    if (orderBy) queryString += `orderBy=${orderBy}`;
+    if (page) params.append('page', page as string);
+    if (pageSize) params.append('pageSize', pageSize as string);
+    if (orderBy) params.append('orderBy', orderBy as string);
 
-    const response = await fetchWithRetry(
-      `${POKEMON_TCG_API_BASE}/cards?${queryString}`
-    );
+    const queryString = params.toString();
+    const finalUrl = `${POKEMON_TCG_API_BASE}/cards?${queryString}`;
+    
+    console.log('🔍 Búsqueda de cartas:', {
+      originalParams: { q, page, pageSize, orderBy, set, rarity },
+      finalUrl,
+      queryString
+    });
+
+    const response = await fetchWithRetry(finalUrl);
 
     // Guardar en caché
     cacheService.set(cacheKey, response, CacheService.TTL.POKEMON_CARDS);
