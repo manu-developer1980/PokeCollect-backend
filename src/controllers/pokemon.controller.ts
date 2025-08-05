@@ -2,6 +2,14 @@ import { Request, Response } from "express";
 import axios from "axios";
 import { cacheService, CacheService } from "../lib/cache-service";
 import { externalAPILimiter } from "../lib/rate-limiter";
+import { 
+  searchCardsMock, 
+  getCardByIdMock, 
+  getSetsMock, 
+  getTypesMock, 
+  getRaritiesMock,
+  checkAPIHealth 
+} from "./pokemon-mock.controller";
 
 const POKEMON_TCG_API_BASE = "https://api.pokemontcg.io/v2";
 const API_KEY = process.env.POKEMON_TCG_API_KEY || "";
@@ -48,6 +56,13 @@ async function fetchWithRetry(url: string, retries = 3, delay = 1000) {
 export const searchCards = async (req: Request, res: Response) => {
   const { q, page, pageSize, orderBy, set, rarity } = req.query;
 
+  // Verificar si la API externa está disponible
+  const isAPIHealthy = await checkAPIHealth();
+  if (!isAPIHealthy) {
+    console.log('🔄 API externa no disponible, usando datos mock');
+    return searchCardsMock(req, res);
+  }
+
   try {
     // Generar clave de caché basada en los parámetros de búsqueda
     const cacheKey = cacheService.generateKey('pokemon:cards', {
@@ -69,23 +84,30 @@ export const searchCards = async (req: Request, res: Response) => {
     // Construir los parámetros de la URL
     const params = new URLSearchParams();
 
-    // Añadir el parámetro de búsqueda principal
-    if (q) {
-      params.append('q', q as string);
+    // Construir la consulta usando sintaxis Lucene correcta
+    const queryParts: string[] = [];
+    
+    // Añadir el parámetro de búsqueda principal (solo si hay texto de búsqueda)
+    if (q && q.toString().trim()) {
+      // Usar búsqueda más flexible: buscar en nombre o permitir comodines
+      const searchTerm = q.toString().trim();
+      queryParts.push(`name:*${searchTerm}*`);
     }
 
     // Añadir filtro por set si está presente
     if (set && set !== "all") {
-      const currentQ = params.get('q') || '';
-      const newQ = currentQ ? `${currentQ} set.id:"${set}"` : `set.id:"${set}"`;
-      params.set('q', newQ);
+      queryParts.push(`set.id:"${set}"`);
     }
 
     // Añadir filtro por rareza si está presente
     if (rarity && rarity !== "all") {
-      const currentQ = params.get('q') || '';
-      const newQ = currentQ ? `${currentQ} rarity:"${rarity}"` : `rarity:"${rarity}"`;
-      params.set('q', newQ);
+      queryParts.push(`rarity:"${rarity}"`);
+    }
+
+    // Combinar todas las partes de la consulta con AND
+    if (queryParts.length > 0) {
+      const finalQuery = queryParts.join(' AND ');
+      params.append('q', finalQuery);
     }
 
     // Añadir paginación y ordenación
@@ -126,6 +148,13 @@ export const searchCards = async (req: Request, res: Response) => {
 export const getCardById = async (req: Request, res: Response) => {
   const { id } = req.params;
 
+  // Verificar si la API externa está disponible
+  const isAPIHealthy = await checkAPIHealth();
+  if (!isAPIHealthy) {
+    console.log('🔄 API externa no disponible, usando datos mock para carta por ID');
+    return getCardByIdMock(req, res);
+  }
+
   try {
     const cacheKey = `pokemon:card:${id}`;
     
@@ -158,8 +187,15 @@ export const getCardById = async (req: Request, res: Response) => {
   }
 };
 
-// Controlador para obtener sets
-export const getSets = async (_req: Request, res: Response) => {
+// Controlador para obtener todos los sets
+export const getSets = async (req: Request, res: Response) => {
+  // Verificar si la API externa está disponible
+  const isAPIHealthy = await checkAPIHealth();
+  if (!isAPIHealthy) {
+    console.log('🔄 API externa no disponible, usando datos mock para sets');
+    return getSetsMock(req, res);
+  }
+
   try {
     const cacheKey = 'pokemon:sets:all';
     
@@ -205,8 +241,15 @@ export const getSets = async (_req: Request, res: Response) => {
   }
 };
 
-// Controlador para obtener tipos
-export const getTypes = async (_req: Request, res: Response) => {
+// Controlador para obtener todos los tipos
+export const getTypes = async (req: Request, res: Response) => {
+  // Verificar si la API externa está disponible
+  const isAPIHealthy = await checkAPIHealth();
+  if (!isAPIHealthy) {
+    console.log('🔄 API externa no disponible, usando datos mock para tipos');
+    return getTypesMock(req, res);
+  }
+
   try {
     const cacheKey = 'pokemon:types:all';
     
@@ -231,8 +274,15 @@ export const getTypes = async (_req: Request, res: Response) => {
 };
 
 // Controlador para obtener raridades
-// Controlador para obtener raridades
-export const getRarities = async (_req: Request, res: Response) => {
+// Controlador para obtener todas las rarezas
+export const getRarities = async (req: Request, res: Response) => {
+  // Verificar si la API externa está disponible
+  const isAPIHealthy = await checkAPIHealth();
+  if (!isAPIHealthy) {
+    console.log('🔄 API externa no disponible, usando datos mock para rarezas');
+    return getRaritiesMock(req, res);
+  }
+
   try {
     const cacheKey = 'pokemon:rarities:all';
     
