@@ -324,7 +324,7 @@ export class AutoUpdateService {
     localPokemonData.clearCache();
     
     // Forzar recarga de sets y cartas accediendo a ellos
-    await localPokemonData.getSets();
+    await localPokemonData.getSets('en');
     await localPokemonData.getAllCards();
     
     console.log('✅ Data reloaded successfully');

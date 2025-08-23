@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { getSpanishSetName } from '../data/set-translations';
 
 interface PokemonCard {
   id: string;
@@ -92,20 +93,40 @@ class LocalPokemonDataService {
   }
 
   // Cargar todos los sets
-  async getSets(): Promise<PokemonSet[]> {
+  async getSets(language: string = 'en'): Promise<PokemonSet[]> {
     if (this.setsCache) {
-      return this.setsCache;
+      const translatedSets = this.applySetsTranslation(this.setsCache, language);
+      return this.sortSetsAlphabetically(translatedSets);
     }
 
     try {
       const setsPath = path.join(this.dataPath, 'sets', 'en.json');
       const setsData = fs.readFileSync(setsPath, 'utf-8');
       this.setsCache = JSON.parse(setsData);
-      return this.setsCache || [];
+      const translatedSets = this.applySetsTranslation(this.setsCache || [], language);
+      return this.sortSetsAlphabetically(translatedSets);
     } catch (error) {
       console.error('Error loading sets:', error);
       return [];
     }
+  }
+
+  private applySetsTranslation(sets: PokemonSet[], language: string): PokemonSet[] {
+    if (language !== 'es') {
+      return sets;
+    }
+
+    return sets.map(set => {
+      const spanishName = getSpanishSetName(set.id, set.name);
+      return {
+        ...set,
+        name: spanishName
+      };
+    });
+  }
+
+  private sortSetsAlphabetically(sets: PokemonSet[]): PokemonSet[] {
+    return sets.sort((a, b) => a.name.localeCompare(b.name));
   }
 
   // Cargar cartas de un set específico
@@ -124,7 +145,7 @@ class LocalPokemonDataService {
       const cards: PokemonCard[] = JSON.parse(cardsData);
       
       // Agregar información del set a cada carta
-      const sets = await this.getSets();
+      const sets = await this.getSets('en');
       const setInfo = sets.find(s => s.id === setId);
       
       if (setInfo) {
@@ -148,7 +169,7 @@ class LocalPokemonDataService {
     }
 
     try {
-      const sets = await this.getSets();
+      const sets = await this.getSets('en');
       const allCards: PokemonCard[] = [];
 
       for (const set of sets) {
@@ -200,13 +221,13 @@ class LocalPokemonDataService {
 
   // Obtener set por ID
   async getSetById(setId: string): Promise<PokemonSet | null> {
-    const sets = await this.getSets();
+    const sets = await this.getSets('en');
     return sets.find(set => set.id === setId) || null;
   }
 
   // Buscar sets por nombre
   async searchSetsByName(name: string, limit: number = 20): Promise<PokemonSet[]> {
-    const sets = await this.getSets();
+    const sets = await this.getSets('en');
     const searchTerm = name.toLowerCase();
     
     return sets
@@ -281,7 +302,7 @@ class LocalPokemonDataService {
       allCardsLoaded: boolean;
     };
   }> {
-    const sets = await this.getSets();
+    const sets = await this.getSets('en');
     const allCards = await this.getAllCards();
     
     return {

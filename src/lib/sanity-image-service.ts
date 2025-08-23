@@ -144,7 +144,7 @@ export class SanityImageService {
     try {
       console.log('Starting full migration to Sanity...');
       
-      const sets = await localPokemonData.getSets();
+      const sets = await localPokemonData.getSets('en');
       console.log(`Found ${sets.length} sets to migrate`);
 
       let totalProcessed = 0;

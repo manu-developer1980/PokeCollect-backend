@@ -52,6 +52,7 @@ export class PokemonController {
                 parsedRarity = cleanValue;
                 break;
               case 'set':
+              case 'set.id':
                 parsedSet = cleanValue;
                 break;
             }
@@ -83,6 +84,9 @@ export class PokemonController {
           parsedSupertype as string,
           searchLimit
         );
+      } else if (parsedSet) {
+        // Si solo se filtra por set, obtener cartas de ese set específicamente
+        cards = await localPokemonData.getCardsBySet(parsedSet as string);
       } else {
         // Si no hay filtros específicos, obtener todas las cartas
         cards = await localPokemonData.getAllCards();
@@ -183,12 +187,13 @@ export class PokemonController {
   // Obtener todos los sets
   static async getSets(req: Request, res: Response) {
     try {
-      const { pageSize = "20", page = "1", name } = req.query;
+      const { pageSize = "20", page = "1", name, lang = "en" } = req.query;
       const limit = Math.min(parseInt(pageSize as string) || 20, 250);
       const pageNum = parseInt(page as string) || 1;
       const offset = (pageNum - 1) * limit;
+      const language = lang as string;
 
-      const cacheKey = `local-sets-${pageNum}-${limit}-${name || "all"}`;
+      const cacheKey = `local-sets-${pageNum}-${limit}-${name || "all"}-${language}`;
 
       // Verificar cache
       const cachedSets = cacheService.get(cacheKey) as any;
@@ -208,8 +213,22 @@ export class PokemonController {
 
       if (name) {
         sets = await localPokemonData.searchSetsByName(name as string, 1000);
+        // Apply translation to search results if needed
+        if (language === 'es') {
+          sets = sets.map(set => {
+            const { getSpanishSetName } = require('../data/set-translations');
+            const spanishName = getSpanishSetName(set.id, set.name);
+            return {
+              ...set,
+              name: spanishName
+            };
+          });
+        }
+        
+        // Sort alphabetically
+        sets = sets.sort((a, b) => a.name.localeCompare(b.name));
       } else {
-        sets = await localPokemonData.getSets();
+        sets = await localPokemonData.getSets(language);
       }
 
       // Paginación
@@ -392,6 +411,74 @@ export class PokemonController {
       res.status(500).json({
         success: false,
         error: "Error interno del servidor al obtener los metadatos",
+      });
+    }
+  }
+
+  // Obtener tipos
+  static async getTypes(req: Request, res: Response) {
+    try {
+      const cacheKey = "local-types";
+
+      // Verificar cache
+      const cachedTypes = cacheService.get(cacheKey);
+      if (cachedTypes) {
+        return res.json({
+          success: true,
+          data: cachedTypes,
+          source: "local-cache",
+        });
+      }
+
+      const types = await localPokemonData.getTypes();
+
+      // Guardar en cache por 2 horas
+      cacheService.set(cacheKey, types, 7200);
+
+      res.json({
+        success: true,
+        data: types,
+        source: "local",
+      });
+    } catch (error) {
+      console.error("Error getting types:", error);
+      res.status(500).json({
+        success: false,
+        error: "Error interno del servidor al obtener los tipos",
+      });
+    }
+  }
+
+  // Obtener rarezas
+  static async getRarities(req: Request, res: Response) {
+    try {
+      const cacheKey = "local-rarities";
+
+      // Verificar cache
+      const cachedRarities = cacheService.get(cacheKey);
+      if (cachedRarities) {
+        return res.json({
+          success: true,
+          data: cachedRarities,
+          source: "local-cache",
+        });
+      }
+
+      const rarities = await localPokemonData.getRarities();
+
+      // Guardar en cache por 2 horas
+      cacheService.set(cacheKey, rarities, 7200);
+
+      res.json({
+        success: true,
+        data: rarities,
+        source: "local",
+      });
+    } catch (error) {
+      console.error("Error getting rarities:", error);
+      res.status(500).json({
+        success: false,
+        error: "Error interno del servidor al obtener las rarezas",
       });
     }
   }

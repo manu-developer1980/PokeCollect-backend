@@ -15,6 +15,8 @@ router.get('/sets/:id/cards', PokemonController.getCardsBySet);
 
 // Rutas para metadatos
 router.get('/metadata', PokemonController.getMetadata);
+router.get('/types', PokemonController.getTypes);
+router.get('/rarities', PokemonController.getRarities);
 
 // Rutas de utilidad
 router.get('/stats', PokemonController.getStats);

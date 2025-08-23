@@ -74,7 +74,7 @@ app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
   
   // Inicializar datos locales al arrancar
-  localPokemonData.getSets().then(() => {
+  localPokemonData.getSets('en').then(() => {
     console.log('✅ Local Pokemon data initialized');
     
     // Inicializar servicio de auto-update después de cargar los datos

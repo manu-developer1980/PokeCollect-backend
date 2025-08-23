@@ -326,7 +326,7 @@ export class ImageController {
       } = req.body;
 
       // Obtener todos los sets disponibles
-      const sets = await localPokemonData.getSets();
+      const sets = await localPokemonData.getSets('en');
       
       if (!sets || sets.length === 0) {
         res.status(404).json({
