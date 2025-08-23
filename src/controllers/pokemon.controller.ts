@@ -1,8 +1,38 @@
 import { Request, Response } from "express";
 import { localPokemonData } from "../lib/local-pokemon-data";
 import { cacheService } from "../lib/cache-service";
+import { sanityHelpers } from "../lib/sanity-client";
 
 export class PokemonController {
+  // Función auxiliar para reemplazar URLs de imágenes con Sanity
+  private static async replaceImageUrls(card: any): Promise<any> {
+    try {
+      const sanityImages = await sanityHelpers.getCardImage(card.id);
+      if (sanityImages && sanityImages.length > 0) {
+        const updatedCard = { ...card };
+        const smallImage = sanityImages.find((img: any) => img.imageType === 'small');
+        const largeImage = sanityImages.find((img: any) => img.imageType === 'large');
+        
+        if (smallImage || largeImage) {
+          updatedCard.images = {
+            small: smallImage ? smallImage.imageUrl : card.images?.small,
+            large: largeImage ? largeImage.imageUrl : card.images?.large
+          };
+        }
+        return updatedCard;
+      }
+    } catch (error) {
+      // Si hay error con Sanity, usar imágenes originales
+      console.warn(`Failed to get Sanity images for card ${card.id}:`, error);
+    }
+    return card;
+  }
+
+  // Función auxiliar para procesar múltiples cartas
+  private static async replaceImageUrlsForCards(cards: any[]): Promise<any[]> {
+    const promises = cards.map(card => PokemonController.replaceImageUrls(card));
+    return Promise.all(promises);
+  }
   // Buscar cartas
   static async searchCards(req: Request, res: Response) {
     try {
@@ -124,12 +154,15 @@ export class PokemonController {
       const paginatedCards = cards.slice(offset, offset + limit);
       const totalCount = cards.length;
 
+      // Reemplazar URLs de imágenes con Sanity
+      const cardsWithSanityImages = await PokemonController.replaceImageUrlsForCards(paginatedCards);
+
       res.json({
         success: true,
-        data: paginatedCards,
+        data: cardsWithSanityImages,
         page: pageNum,
         pageSize: limit,
-        count: paginatedCards.length,
+        count: cardsWithSanityImages.length,
         totalCount,
         source: "local",
       });
@@ -167,12 +200,15 @@ export class PokemonController {
         });
       }
 
+      // Reemplazar URLs de imágenes con Sanity
+      const cardWithSanityImages = await PokemonController.replaceImageUrls(card);
+
       // Guardar en cache por 1 hora
-      cacheService.set(cacheKey, card, 3600);
+      cacheService.set(cacheKey, cardWithSanityImages, 3600);
 
       res.json({
         success: true,
-        data: card,
+        data: cardWithSanityImages,
         source: "local",
       });
     } catch (error) {
@@ -342,9 +378,12 @@ export class PokemonController {
       const paginatedCards = cards.slice(offset, offset + limit);
       const totalCount = cards.length;
 
+      // Reemplazar URLs de imágenes con Sanity
+      const cardsWithSanityImages = await PokemonController.replaceImageUrlsForCards(paginatedCards);
+
       const result = {
-        data: paginatedCards,
-        count: paginatedCards.length,
+        data: cardsWithSanityImages,
+        count: cardsWithSanityImages.length,
         totalCount,
       };
 
@@ -353,10 +392,10 @@ export class PokemonController {
 
       res.json({
         success: true,
-        data: paginatedCards,
+        data: cardsWithSanityImages,
         page: pageNum,
         pageSize: limit,
-        count: paginatedCards.length,
+        count: cardsWithSanityImages.length,
         totalCount,
         source: "local",
       });
