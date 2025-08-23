@@ -1,4 +1,4 @@
-import sanityClient, { sanityHelpers, PokemonCardImage } from './sanity-client';
+import sanityClient, { sanityHelpers, PokemonCardImage, sanityReadClient } from './sanity-client';
 import { localPokemonData } from './local-pokemon-data';
 import fs from 'fs';
 import path from 'path';
@@ -202,7 +202,8 @@ export class SanityImageService {
         "large": count(*[_type == "pokemonCardImage" && imageType == "large"])
       }`;
       
-      const stats = await sanityClient.fetch(query);
+      // Usar cliente de lectura con CDN para estadísticas más rápidas
+      const stats = await sanityReadClient.fetch(query);
       return stats;
     } catch (error) {
       console.error('Error getting migration stats:', error);
@@ -216,7 +217,8 @@ export class SanityImageService {
   async testConnection(): Promise<boolean> {
     try {
       const query = `count(*[_type == "pokemonCardImage"])`;
-      await sanityClient.fetch(query);
+      // Usar cliente de lectura para prueba de conexión
+      await sanityReadClient.fetch(query);
       console.log('✅ Sanity connection successful');
       return true;
     } catch (error) {

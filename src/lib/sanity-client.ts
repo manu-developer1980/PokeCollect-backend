@@ -1,7 +1,8 @@
 import { createClient } from '@sanity/client';
 
 // Configuración del cliente Sanity
-const sanityClient = createClient({
+// Cliente para operaciones de escritura (sin CDN)
+const sanityWriteClient = createClient({
   projectId: 'mu8n20rt',
   dataset: 'production',
   useCdn: false, // Para operaciones de escritura
@@ -9,7 +10,19 @@ const sanityClient = createClient({
   token: process.env.SANITY_API_TOKEN || 'sklZlmKmXU7r8EstCW6fihjPRYmvz9uBhAH8xYu9pxTs0U2fuYXOCfgd5ANsl5vri7LQe8Vi7Iln0Sv8eZMIn1jeEMoaKl1FO2ww2LooHw21gOreLUR1HgOhaJku24XKvk8clLs2x7JShl271oUQ9XolpEJY0rvgeYcKSFl2AfMhmOIKJKZF'
 });
 
+// Cliente para operaciones de lectura (con CDN para mejor rendimiento)
+const sanityReadClient = createClient({
+  projectId: 'mu8n20rt',
+  dataset: 'production',
+  useCdn: true, // Usar CDN para lecturas más rápidas
+  apiVersion: '2024-01-01'
+});
+
+// Cliente principal (para compatibilidad)
+const sanityClient = sanityWriteClient;
+
 export default sanityClient;
+export { sanityReadClient, sanityWriteClient };
 
 // Tipos para las imágenes de cartas Pokémon
 export interface PokemonCardImage {
@@ -82,7 +95,8 @@ export const sanityHelpers = {
       }`;
       
       const params = imageType ? { cardId, imageType } : { cardId };
-      const result = await sanityClient.fetch(query, params);
+      // Usar cliente de lectura con CDN para mejor rendimiento
+      const result = await sanityReadClient.fetch(query, params);
       return result;
     } catch (error) {
       console.error('Error fetching card image:', error);
@@ -94,7 +108,8 @@ export const sanityHelpers = {
   async imageExists(cardId: string, imageType: 'small' | 'large') {
     try {
       const query = `count(*[_type == "pokemonCardImage" && cardId == $cardId && imageType == $imageType])`;
-      const count = await sanityClient.fetch(query, { cardId, imageType });
+      // Usar cliente de lectura con CDN para verificaciones más rápidas
+      const count = await sanityReadClient.fetch(query, { cardId, imageType });
       return count > 0;
     } catch (error) {
       console.error('Error checking if image exists:', error);
