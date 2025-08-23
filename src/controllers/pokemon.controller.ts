@@ -1,285 +1,418 @@
 import { Request, Response } from "express";
-import axios from "axios";
-import { cacheService, CacheService } from "../lib/cache-service";
-import { externalAPILimiter } from "../lib/rate-limiter";
+import { localPokemonData } from "../lib/local-pokemon-data";
+import { cacheService } from "../lib/cache-service";
 
-const POKEMON_TCG_API_BASE = "https://api.pokemontcg.io/v2";
-const API_KEY = process.env.POKEMON_TCG_API_KEY || "";
+export class PokemonController {
+  // Buscar cartas
+  static async searchCards(req: Request, res: Response) {
+    try {
+      const {
+        name,
+        type,
+        supertype,
+        subtype,
+        rarity,
+        set,
+        pageSize = "20",
+        page = "1",
+      } = req.query;
 
-// Configuración de headers para la API de Pokémon TCG
-const apiHeaders = API_KEY ? { "X-Api-Key": API_KEY } : {};
+      const limit = Math.min(parseInt(pageSize as string) || 20, 250);
+      const pageNum = parseInt(page as string) || 1;
+      const offset = (pageNum - 1) * limit;
 
-// Log de configuración inicial
-console.log('🔧 Configuración API:', {
-  hasApiKey: !!API_KEY,
-  apiKeyLength: API_KEY.length,
-  baseUrl: POKEMON_TCG_API_BASE
-});
+      let cards = [];
 
-// Función de utilidad para reintentar peticiones con rate limiting
-async function fetchWithRetry(url: string, retries = 3, delay = 1000) {
-  return externalAPILimiter.execute(async () => {
-    console.log('🌐 Petición a API externa:', { url, headers: apiHeaders });
-    
-    for (let i = 0; i < retries; i++) {
-      try {
-        const response = await axios.get(url, { headers: apiHeaders });
-        console.log('✅ Respuesta exitosa de API externa:', {
-          status: response.status,
-          dataCount: response.data?.data?.length || 0,
-          totalCount: response.data?.totalCount || 0
-        });
-        return response.data;
-      } catch (error) {
-        console.error(`❌ Error en intento ${i + 1}/${retries}:`, {
-          message: error instanceof Error ? error.message : 'Error desconocido',
-          status: (error as any)?.response?.status,
-          statusText: (error as any)?.response?.statusText,
-          url
-        });
-        if (i === retries - 1) throw error;
-        await new Promise((resolve) => setTimeout(resolve, delay * Math.pow(2, i))); // Backoff exponencial
+      // Buscar por diferentes criterios
+      if (name) {
+        cards = await localPokemonData.searchCardsByName(
+          name as string,
+          limit * 2
+        );
+      } else if (type) {
+        cards = await localPokemonData.searchCardsByType(
+          type as string,
+          limit * 2
+        );
+      } else if (supertype) {
+        cards = await localPokemonData.searchCardsBySupertype(
+          supertype as string,
+          limit * 2
+        );
+      } else {
+        // Si no hay filtros específicos, obtener todas las cartas
+        const allCards = await localPokemonData.getAllCards();
+        cards = allCards.slice(0, limit * 2);
       }
+
+      // Filtros adicionales
+      if (subtype) {
+        cards = cards.filter((card) =>
+          card.subtypes?.some((st) =>
+            st.toLowerCase().includes((subtype as string).toLowerCase())
+          )
+        );
+      }
+
+      if (rarity) {
+        cards = cards.filter((card) =>
+          card.rarity?.toLowerCase().includes((rarity as string).toLowerCase())
+        );
+      }
+
+      if (set) {
+        cards = cards.filter(
+          (card) =>
+            card.set?.id === set ||
+            card.set?.name.toLowerCase().includes((set as string).toLowerCase())
+        );
+      }
+
+      // Paginación
+      const paginatedCards = cards.slice(offset, offset + limit);
+      const totalCount = cards.length;
+
+      res.json({
+        success: true,
+        data: paginatedCards,
+        page: pageNum,
+        pageSize: limit,
+        count: paginatedCards.length,
+        totalCount,
+        source: "local",
+      });
+    } catch (error) {
+      console.error("Error searching cards:", error);
+      res.status(500).json({
+        success: false,
+        error: "Error interno del servidor al buscar cartas",
+      });
     }
-  });
-}
-
-// Controlador para buscar cartas
-export const searchCards = async (req: Request, res: Response) => {
-  const { q, page, pageSize, orderBy, set, rarity } = req.query;
-
-  try {
-    // Generar clave de caché basada en los parámetros de búsqueda
-    const cacheKey = cacheService.generateKey('pokemon:cards', {
-      q: q || '',
-      page: page || 1,
-      pageSize: pageSize || 20,
-      orderBy: orderBy || '',
-      set: set || '',
-      rarity: rarity || ''
-    });
-
-    // Intentar obtener del caché primero
-    const cachedResult = cacheService.get(cacheKey);
-    if (cachedResult) {
-      console.log('🎯 Devolviendo resultados de búsqueda desde caché');
-      return res.json(cachedResult);
-    }
-
-    // Construir los parámetros de la URL
-    const params = new URLSearchParams();
-
-    // Añadir el parámetro de búsqueda principal
-    if (q) {
-      params.append('q', q as string);
-    }
-
-    // Añadir filtro por set si está presente
-    if (set && set !== "all") {
-      const currentQ = params.get('q') || '';
-      const newQ = currentQ ? `${currentQ} set.id:"${set}"` : `set.id:"${set}"`;
-      params.set('q', newQ);
-    }
-
-    // Añadir filtro por rareza si está presente
-    if (rarity && rarity !== "all") {
-      const currentQ = params.get('q') || '';
-      const newQ = currentQ ? `${currentQ} rarity:"${rarity}"` : `rarity:"${rarity}"`;
-      params.set('q', newQ);
-    }
-
-    // Añadir paginación y ordenación
-    if (page) params.append('page', page as string);
-    if (pageSize) params.append('pageSize', pageSize as string);
-    if (orderBy) params.append('orderBy', orderBy as string);
-
-    const queryString = params.toString();
-    const finalUrl = `${POKEMON_TCG_API_BASE}/cards?${queryString}`;
-    
-    console.log('🔍 Búsqueda de cartas:', {
-      originalParams: { q, page, pageSize, orderBy, set, rarity },
-      finalUrl,
-      queryString
-    });
-
-    const response = await fetchWithRetry(finalUrl);
-
-    // Guardar en caché
-    cacheService.set(cacheKey, response, CacheService.TTL.POKEMON_CARDS);
-    console.log('💾 Resultados de búsqueda guardados en caché');
-
-    res.json(response);
-  } catch (error) {
-    console.error("API request failed:", error);
-    res.status(500).json({
-      data: [],
-      page: 1,
-      pageSize: 20,
-      count: 0,
-      totalCount: 0,
-      error: "Failed to fetch cards",
-    });
   }
-};
 
-// Controlador para obtener una carta por ID
-export const getCardById = async (req: Request, res: Response) => {
-  const { id } = req.params;
+  // Obtener carta por ID
+  static async getCardById(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      const cacheKey = `local-card-${id}`;
 
-  try {
-    const cacheKey = `pokemon:card:${id}`;
-    
-    // Intentar obtener del caché primero
-    const cachedCard = cacheService.get(cacheKey);
-    if (cachedCard) {
-      console.log(`🎯 Carta ${id} devuelta desde caché`);
-      return res.json(cachedCard);
+      // Verificar cache
+      const cachedCard = cacheService.get(cacheKey);
+      if (cachedCard) {
+        return res.json({
+          success: true,
+          data: cachedCard,
+          source: "local-cache",
+        });
+      }
+
+      const card = await localPokemonData.getCardById(id);
+
+      if (!card) {
+        return res.status(404).json({
+          success: false,
+          error: "Carta no encontrada",
+        });
+      }
+
+      // Guardar en cache por 1 hora
+      cacheService.set(cacheKey, card, 3600);
+
+      res.json({
+        success: true,
+        data: card,
+        source: "local",
+      });
+    } catch (error) {
+      console.error("Error getting card by ID:", error);
+      res.status(500).json({
+        success: false,
+        error: "Error interno del servidor al obtener la carta",
+      });
     }
+  }
 
-    const data = await fetchWithRetry(`${POKEMON_TCG_API_BASE}/cards/${id}`);
-    
-    // Guardar en caché con TTL largo (las cartas no cambian)
-    cacheService.set(cacheKey, data, CacheService.TTL.LONG);
-    console.log(`💾 Carta ${id} guardada en caché`);
-    
-    res.json(data);
-  } catch (error) {
-    console.error(`Failed to fetch card details for ${id}:`, error);
-    res.status(404).json({
-      data: {
-        id,
-        name: "Card Unavailable",
-        images: {
-          small: "/placeholder-card.png",
-          large: "/placeholder-card.png",
+  // Obtener todos los sets
+  static async getSets(req: Request, res: Response) {
+    try {
+      const { pageSize = "20", page = "1", name } = req.query;
+      const limit = Math.min(parseInt(pageSize as string) || 20, 250);
+      const pageNum = parseInt(page as string) || 1;
+      const offset = (pageNum - 1) * limit;
+
+      const cacheKey = `local-sets-${pageNum}-${limit}-${name || "all"}`;
+
+      // Verificar cache
+      const cachedSets = cacheService.get(cacheKey) as any;
+      if (cachedSets) {
+        return res.json({
+          success: true,
+          data: cachedSets.data,
+          page: pageNum,
+          pageSize: limit,
+          count: cachedSets.count,
+          totalCount: cachedSets.totalCount,
+          source: "local-cache",
+        });
+      }
+
+      let sets = [];
+
+      if (name) {
+        sets = await localPokemonData.searchSetsByName(name as string, 1000);
+      } else {
+        sets = await localPokemonData.getSets();
+      }
+
+      // Paginación
+      const paginatedSets = sets.slice(offset, offset + limit);
+      const totalCount = sets.length;
+
+      const result = {
+        data: paginatedSets,
+        count: paginatedSets.length,
+        totalCount,
+      };
+
+      // Guardar en cache por 30 minutos
+      cacheService.set(cacheKey, result, 1800);
+
+      res.json({
+        success: true,
+        data: paginatedSets,
+        page: pageNum,
+        pageSize: limit,
+        count: paginatedSets.length,
+        totalCount,
+        source: "local",
+      });
+    } catch (error) {
+      console.error("Error getting sets:", error);
+      res.status(500).json({
+        success: false,
+        error: "Error interno del servidor al obtener los sets",
+      });
+    }
+  }
+
+  // Obtener set por ID
+  static async getSetById(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      const cacheKey = `local-set-${id}`;
+
+      // Verificar cache
+      const cachedSet = cacheService.get(cacheKey);
+      if (cachedSet) {
+        return res.json({
+          success: true,
+          data: cachedSet,
+          source: "local-cache",
+        });
+      }
+
+      const set = await localPokemonData.getSetById(id);
+
+      if (!set) {
+        return res.status(404).json({
+          success: false,
+          error: "Set no encontrado",
+        });
+      }
+
+      // Guardar en cache por 1 hora
+      cacheService.set(cacheKey, set, 3600);
+
+      res.json({
+        success: true,
+        data: set,
+        source: "local",
+      });
+    } catch (error) {
+      console.error("Error getting set by ID:", error);
+      res.status(500).json({
+        success: false,
+        error: "Error interno del servidor al obtener el set",
+      });
+    }
+  }
+
+  // Obtener cartas de un set
+  static async getCardsBySet(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      const { pageSize = "20", page = "1" } = req.query;
+      const limit = Math.min(parseInt(pageSize as string) || 20, 250);
+      const pageNum = parseInt(page as string) || 1;
+      const offset = (pageNum - 1) * limit;
+
+      const cacheKey = `local-set-cards-${id}-${pageNum}-${limit}`;
+
+      // Verificar cache
+      const cachedCards = cacheService.get(cacheKey) as any;
+      if (cachedCards) {
+        return res.json({
+          success: true,
+          data: cachedCards.data,
+          page: pageNum,
+          pageSize: limit,
+          count: cachedCards.count,
+          totalCount: cachedCards.totalCount,
+          source: "local-cache",
+        });
+      }
+
+      const cards = await localPokemonData.getCardsBySet(id);
+
+      if (cards.length === 0) {
+        return res.status(404).json({
+          success: false,
+          error: "Set no encontrado o sin cartas",
+        });
+      }
+
+      // Paginación
+      const paginatedCards = cards.slice(offset, offset + limit);
+      const totalCount = cards.length;
+
+      const result = {
+        data: paginatedCards,
+        count: paginatedCards.length,
+        totalCount,
+      };
+
+      // Guardar en cache por 1 hora
+      cacheService.set(cacheKey, result, 3600);
+
+      res.json({
+        success: true,
+        data: paginatedCards,
+        page: pageNum,
+        pageSize: limit,
+        count: paginatedCards.length,
+        totalCount,
+        source: "local",
+      });
+    } catch (error) {
+      console.error("Error getting cards by set:", error);
+      res.status(500).json({
+        success: false,
+        error: "Error interno del servidor al obtener las cartas del set",
+      });
+    }
+  }
+
+  // Obtener metadatos (tipos, supertipos, etc.)
+  static async getMetadata(req: Request, res: Response) {
+    try {
+      const cacheKey = "local-metadata";
+
+      // Verificar cache
+      const cachedMetadata = cacheService.get(cacheKey);
+      if (cachedMetadata) {
+        return res.json({
+          success: true,
+          data: cachedMetadata,
+          source: "local-cache",
+        });
+      }
+
+      const [types, supertypes, subtypes, rarities] = await Promise.all([
+        localPokemonData.getTypes(),
+        localPokemonData.getSupertypes(),
+        localPokemonData.getSubtypes(),
+        localPokemonData.getRarities(),
+      ]);
+
+      const metadata = {
+        types,
+        supertypes,
+        subtypes,
+        rarities,
+      };
+
+      // Guardar en cache por 2 horas
+      cacheService.set(cacheKey, metadata, 7200);
+
+      res.json({
+        success: true,
+        data: metadata,
+        source: "local",
+      });
+    } catch (error) {
+      console.error("Error getting metadata:", error);
+      res.status(500).json({
+        success: false,
+        error: "Error interno del servidor al obtener los metadatos",
+      });
+    }
+  }
+
+  // Obtener estadísticas
+  static async getStats(req: Request, res: Response) {
+    try {
+      const stats = await localPokemonData.getStats();
+      const cacheStats = cacheService.getStats();
+
+      res.json({
+        success: true,
+        data: {
+          ...stats,
+          cache: cacheStats,
         },
-      },
-    });
-  }
-};
-
-// Controlador para obtener sets
-export const getSets = async (_req: Request, res: Response) => {
-  try {
-    const cacheKey = 'pokemon:sets:all';
-    
-    // Intentar obtener del caché primero
-    const cachedSets = cacheService.get(cacheKey);
-    if (cachedSets) {
-      console.log('🎯 Sets devueltos desde caché');
-      return res.json(cachedSets);
+        source: "local",
+      });
+    } catch (error) {
+      console.error("Error getting stats:", error);
+      res.status(500).json({
+        success: false,
+        error: "Error interno del servidor al obtener las estadísticas",
+      });
     }
-
-    const response = await fetchWithRetry(
-      `${POKEMON_TCG_API_BASE}/sets?orderBy=-releaseDate`
-    );
-
-    // Transformar y enriquecer la respuesta
-    const sets = response.data.map((set: any) => ({
-      id: set.id,
-      name: set.name,
-      series: set.series,
-      printedTotal: set.printedTotal,
-      releaseDate: set.releaseDate,
-      images: set.images,
-      symbol: set.images?.symbol || null,
-      logo: set.images?.logo || null,
-    }));
-
-    const result = {
-      data: sets,
-      count: sets.length,
-    };
-
-    // Guardar en caché con TTL largo (los sets cambian poco)
-    cacheService.set(cacheKey, result, CacheService.TTL.POKEMON_SETS);
-    console.log('💾 Sets guardados en caché');
-
-    res.json(result);
-  } catch (error) {
-    console.error("Error fetching sets:", error);
-    res.status(500).json({
-      error: "Failed to fetch sets",
-      data: [],
-    });
   }
-};
 
-// Controlador para obtener tipos
-export const getTypes = async (_req: Request, res: Response) => {
-  try {
-    const cacheKey = 'pokemon:types:all';
-    
-    // Intentar obtener del caché primero
-    const cachedTypes = cacheService.get(cacheKey);
-    if (cachedTypes) {
-      console.log('🎯 Tipos devueltos desde caché');
-      return res.json(cachedTypes);
+  // Limpiar cache
+  static async clearCache(req: Request, res: Response) {
+    try {
+      localPokemonData.clearCache();
+      // cacheService.clear(); // Método no disponible
+
+      res.json({
+        success: true,
+        message: "Cache limpiado exitosamente",
+        source: "local",
+      });
+    } catch (error) {
+      console.error("Error clearing cache:", error);
+      res.status(500).json({
+        success: false,
+        error: "Error interno del servidor al limpiar el cache",
+      });
     }
-
-    const response = await fetchWithRetry(`${POKEMON_TCG_API_BASE}/types`);
-    
-    // Guardar en caché con TTL muy largo (los tipos raramente cambian)
-    cacheService.set(cacheKey, response, CacheService.TTL.POKEMON_TYPES);
-    console.log('💾 Tipos guardados en caché');
-    
-    res.json(response);
-  } catch (error) {
-    console.error("Error fetching types:", error);
-    res.status(500).json({ error: "Failed to fetch types", data: [] });
   }
-};
 
-// Controlador para obtener raridades
-// Controlador para obtener raridades
-export const getRarities = async (_req: Request, res: Response) => {
-  try {
-    const cacheKey = 'pokemon:rarities:all';
-    
-    // Intentar obtener del caché primero
-    const cachedRarities = cacheService.get(cacheKey);
-    if (cachedRarities) {
-      console.log('🎯 Raridades devueltas desde caché');
-      return res.json(cachedRarities);
+  // Health check
+  static async healthCheck(req: Request, res: Response) {
+    try {
+      const stats = await localPokemonData.getStats();
+
+      res.json({
+        success: true,
+        status: "healthy",
+        data: {
+          service: "Local Pokemon Data Service",
+          version: "1.0.0",
+          ...stats,
+        },
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      console.error("Health check failed:", error);
+      res.status(500).json({
+        success: false,
+        status: "unhealthy",
+        error: "Error en el servicio de datos locales",
+      });
     }
-
-    const response = await fetchWithRetry(`${POKEMON_TCG_API_BASE}/rarities`);
-    
-    // Guardar en caché con TTL muy largo (las raridades raramente cambian)
-    cacheService.set(cacheKey, response, CacheService.TTL.POKEMON_RARITIES);
-    console.log('💾 Raridades guardadas en caché');
-
-    res.json(response);
-  } catch (error) {
-    console.error("Error fetching rarities:", error);
-    res.status(500).json({ error: "Failed to fetch rarities", data: [] });
   }
-};
-
-// Controlador para obtener estadísticas del caché
-export const getCacheStats = async (_req: Request, res: Response) => {
-  try {
-    const stats = cacheService.getStats();
-    res.json({
-      cache: stats,
-      message: 'Estadísticas del caché obtenidas exitosamente'
-    });
-  } catch (error) {
-    console.error("Error getting cache stats:", error);
-    res.status(500).json({ error: "Failed to get cache stats" });
-  }
-};
-
-// Controlador para limpiar el caché
-export const clearCache = async (_req: Request, res: Response) => {
-  try {
-    cacheService.flush();
-    res.json({
-      success: true,
-      message: 'Caché limpiado exitosamente'
-    });
-  } catch (error) {
-    console.error("Error clearing cache:", error);
-    res.status(500).json({ error: "Failed to clear cache" });
-  }
-};
+}

@@ -1,13 +1,16 @@
+import dotenv from "dotenv";
+dotenv.config();
+
 import express from "express";
 import cors from "cors";
-import dotenv from "dotenv";
 import pokemonRoutes from "./routes/pokemon.routes";
+import autoUpdateRoutes from "./routes/auto-update.routes";
+import { localPokemonData } from './lib/local-pokemon-data';
+import { autoUpdateService } from './lib/auto-update-service';
 import collectionsRoutes from "./routes/collections.routes";
 import contactRoutes from "./routes/contact.routes";
 import stripeRoutes from "./routes/stripe.routes";
 import brevoRoutes from "./routes/brevo.routes";
-
-dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -18,7 +21,7 @@ app.use(
     origin: function (origin, callback) {
       // Permitir requests sin origin (como Postman) en desarrollo
       if (!origin) return callback(null, true);
-      
+
       const allowedOrigins = [
         "http://localhost:5173", // URL de desarrollo Vite
         "http://localhost:5174", // URL de desarrollo Vite alternativa
@@ -26,12 +29,12 @@ app.use(
         "https://poke-collector.netlify.app", // URL de producción
         "https://pokecollector.netlify.app", // URL alternativa de producción
       ];
-      
+
       if (allowedOrigins.indexOf(origin) !== -1) {
         callback(null, true);
       } else {
         console.log(`CORS: Origin ${origin} not allowed`);
-        callback(new Error('Not allowed by CORS'));
+        callback(new Error("Not allowed by CORS"));
       }
     },
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
@@ -44,7 +47,7 @@ app.use(
     ],
     credentials: true,
     maxAge: 86400, // Cache preflight requests for 24 hours
-    optionsSuccessStatus: 200 // Para navegadores legacy
+    optionsSuccessStatus: 200, // Para navegadores legacy
   })
 );
 
@@ -52,6 +55,7 @@ app.use(express.json());
 
 // Rutas
 app.use("/api/pokemon", pokemonRoutes);
+app.use("/api/auto-update", autoUpdateRoutes);
 app.use("/api/collections", collectionsRoutes);
 app.use("/api/contact", contactRoutes);
 app.use("/api/stripe", stripeRoutes);
@@ -63,5 +67,16 @@ app.get("/api/health", (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
+  
+  // Inicializar datos locales al arrancar
+  localPokemonData.getSets().then(() => {
+    console.log('✅ Local Pokemon data initialized');
+    
+    // Inicializar servicio de auto-update después de cargar los datos
+    autoUpdateService.start();
+    console.log('🚀 Auto-update service initialized');
+  }).catch((error: any) => {
+     console.error('❌ Failed to initialize local Pokemon data:', error);
+   });
 });
 export default app;
