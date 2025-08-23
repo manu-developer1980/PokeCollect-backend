@@ -5,10 +5,19 @@ const router = Router();
 
 /**
  * @route GET /api/images/status
- * @description Obtiene el estado del sistema de imágenes locales
+ * @description Obtiene el estado del sistema de imágenes (Sanity + local)
  * @access Public
  */
 router.get('/status', imageController.getImageSystemStatus.bind(imageController));
+
+/**
+ * @route GET /api/images/get/:cardId
+ * @description Obtiene imagen de una carta (prioriza Sanity, fallback a local)
+ * @param {string} cardId - ID de la carta
+ * @query {string} imageType - Tipo de imagen ('small' o 'large', default: 'small')
+ * @access Public
+ */
+router.get('/get/:cardId', imageController.getCardImage.bind(imageController));
 
 /**
  * @route POST /api/images/download/set/:setId

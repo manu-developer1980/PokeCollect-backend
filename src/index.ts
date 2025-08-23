@@ -6,6 +6,7 @@ import cors from "cors";
 import pokemonRoutes from "./routes/pokemon.routes";
 import autoUpdateRoutes from "./routes/auto-update.routes";
 import imageRoutes from './routes/image-routes';
+import sanityImageRoutes from './routes/sanity-image-routes';
 import { localPokemonData } from './lib/local-pokemon-data';
 import { autoUpdateService } from './lib/auto-update-service';
 import collectionsRoutes from "./routes/collections.routes";
@@ -63,6 +64,7 @@ app.use("/api/contact", contactRoutes);
 app.use("/api/stripe", stripeRoutes);
 app.use("/api/brevo", brevoRoutes);
 app.use("/api/images", imageRoutes);
+app.use("/api/sanity-images", sanityImageRoutes);
 
 app.get("/api/health", (req, res) => {
   res.json({ status: "ok", message: "API funcionando correctamente" });

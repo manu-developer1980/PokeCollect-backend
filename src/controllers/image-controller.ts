@@ -1,23 +1,30 @@
 import { Request, Response } from 'express';
 import { imageDownloadService, ImageDownloadOptions, DownloadProgress } from '../lib/image-download-service';
 import { localPokemonData } from '../lib/local-pokemon-data';
+import { sanityHelpers } from '../lib/sanity-client';
+import SanityImageService from '../lib/sanity-image-service';
 import path from 'path';
 import fs from 'fs/promises';
 
 export class ImageController {
+  private sanityImageService = new SanityImageService();
+
   /**
-   * Obtiene el estado del sistema de imágenes locales
+   * Obtiene el estado del sistema de imágenes (Sanity + local)
    */
   async getImageSystemStatus(req: Request, res: Response): Promise<void> {
     try {
       const stats = imageDownloadService.getStats();
       
-      // Verificar si existen los directorios de imágenes
+      // Obtener estadísticas de Sanity
+      const sanityStats = await this.sanityImageService.getMigrationStats();
+      
+      // Verificar si existen los directorios de imágenes locales
       const baseImagePath = 'public/images';
       const smallDirExists = await this.directoryExists(path.join(baseImagePath, 'small'));
       const largeDirExists = await this.directoryExists(path.join(baseImagePath, 'large'));
       
-      // Contar archivos existentes
+      // Contar archivos existentes localmente
       const smallImageCount = smallDirExists ? await this.countFilesInDirectory(path.join(baseImagePath, 'small')) : 0;
       const largeImageCount = largeDirExists ? await this.countFilesInDirectory(path.join(baseImagePath, 'large')) : 0;
       
@@ -25,19 +32,25 @@ export class ImageController {
         success: true,
         data: {
           systemStatus: 'operational',
-          directories: {
-            small: {
-              exists: smallDirExists,
-              imageCount: smallImageCount,
-              path: path.join(baseImagePath, 'small')
-            },
-            large: {
-              exists: largeDirExists,
-              imageCount: largeImageCount,
-              path: path.join(baseImagePath, 'large')
-            }
+          sanity: {
+            connected: true,
+            imageCount: sanityStats.sanity || { small: 0, large: 0, total: 0 }
           },
-          lastDownloadStats: stats,
+          local: {
+            directories: {
+              small: {
+                exists: smallDirExists,
+                imageCount: smallImageCount,
+                path: path.join(baseImagePath, 'small')
+              },
+              large: {
+                exists: largeDirExists,
+                imageCount: largeImageCount,
+                path: path.join(baseImagePath, 'large')
+              }
+            },
+            lastDownloadStats: stats
+          },
           timestamp: new Date().toISOString()
         }
       });
@@ -46,6 +59,90 @@ export class ImageController {
       res.status(500).json({
         success: false,
         error: 'Failed to get image system status',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  }
+
+  /**
+   * Obtiene imagen de una carta (prioriza Sanity, fallback a local)
+   */
+  async getCardImage(req: Request, res: Response): Promise<Response> {
+    try {
+      const { cardId } = req.params;
+      const { imageType = 'small' } = req.query as { imageType?: 'small' | 'large' };
+
+      if (!cardId) {
+        return res.status(400).json({
+          success: false,
+          error: 'Card ID is required'
+        });
+      }
+
+      if (imageType !== 'small' && imageType !== 'large') {
+        return res.status(400).json({
+          success: false,
+          error: 'Image type must be "small" or "large"'
+        });
+      }
+
+      // Intentar obtener desde Sanity primero
+      try {
+        const sanityImages = await sanityHelpers.getCardImage(cardId);
+        if (sanityImages && sanityImages.length > 0) {
+          const image = sanityImages.find((img: any) => img.imageType === imageType);
+          if (image) {
+            return res.json({
+              success: true,
+              source: 'sanity',
+              data: {
+                cardId,
+                imageType,
+                imageUrl: image.imageUrl,
+                originalUrl: image.originalUrl,
+                uploadedAt: image.uploadedAt
+              }
+            });
+          }
+        }
+      } catch (sanityError) {
+        console.warn('Sanity fetch failed, falling back to local:', sanityError);
+      }
+
+      // Fallback a sistema local
+      const card = await localPokemonData.getCardById(cardId);
+      if (!card) {
+        return res.status(404).json({
+          success: false,
+          error: 'Card not found'
+        });
+      }
+
+      const imageUrl = imageType === 'large' ? card.images?.large : card.images?.small;
+      if (!imageUrl) {
+        return res.status(404).json({
+          success: false,
+          error: `${imageType} image not available for this card`
+        });
+      }
+
+      return res.json({
+        success: true,
+        source: 'local',
+        data: {
+          cardId,
+          imageType,
+          imageUrl,
+          cardName: card.name,
+          setName: card.set?.name
+        }
+      });
+
+    } catch (error) {
+      console.error('Error getting card image:', error);
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to get card image',
         details: error instanceof Error ? error.message : 'Unknown error'
       });
     }
