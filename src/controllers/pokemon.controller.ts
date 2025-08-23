@@ -65,26 +65,27 @@ export class PokemonController {
 
       let cards = [];
 
-      // Buscar por diferentes criterios
+      // Buscar por diferentes criterios - obtener más cartas para compensar filtros
+      const searchLimit = Math.max(limit * 10, 1000); // Obtener más cartas para filtrar
+      
       if (parsedName) {
         cards = await localPokemonData.searchCardsByName(
           parsedName as string,
-          limit * 2
+          searchLimit
         );
       } else if (parsedType) {
         cards = await localPokemonData.searchCardsByType(
           parsedType as string,
-          limit * 2
+          searchLimit
         );
       } else if (parsedSupertype) {
         cards = await localPokemonData.searchCardsBySupertype(
           parsedSupertype as string,
-          limit * 2
+          searchLimit
         );
       } else {
         // Si no hay filtros específicos, obtener todas las cartas
-        const allCards = await localPokemonData.getAllCards();
-        cards = allCards.slice(0, limit * 2);
+        cards = await localPokemonData.getAllCards();
       }
 
       // Filtros adicionales
