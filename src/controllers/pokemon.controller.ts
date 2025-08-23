@@ -7,6 +7,7 @@ export class PokemonController {
   static async searchCards(req: Request, res: Response) {
     try {
       const {
+        q,
         name,
         type,
         supertype,
@@ -15,7 +16,48 @@ export class PokemonController {
         set,
         pageSize = "20",
         page = "1",
+        orderBy,
       } = req.query;
+
+      // Parse query parameter 'q' if provided
+      let parsedName = name;
+      let parsedType = type;
+      let parsedSupertype = supertype;
+      let parsedSubtype = subtype;
+      let parsedRarity = rarity;
+      let parsedSet = set;
+
+      if (q && typeof q === 'string') {
+        // Parse query string like "name:\"pika*\"" or "type:fire"
+        const queryParts = q.split(' ');
+        for (const part of queryParts) {
+          if (part.includes(':')) {
+            const [field, value] = part.split(':');
+            const cleanValue = value.replace(/[\\"\'\*]/g, ''); // Remove quotes and wildcards
+            
+            switch (field.toLowerCase()) {
+              case 'name':
+                parsedName = cleanValue;
+                break;
+              case 'type':
+                parsedType = cleanValue;
+                break;
+              case 'supertype':
+                parsedSupertype = cleanValue;
+                break;
+              case 'subtype':
+                parsedSubtype = cleanValue;
+                break;
+              case 'rarity':
+                parsedRarity = cleanValue;
+                break;
+              case 'set':
+                parsedSet = cleanValue;
+                break;
+            }
+          }
+        }
+      }
 
       const limit = Math.min(parseInt(pageSize as string) || 20, 250);
       const pageNum = parseInt(page as string) || 1;
@@ -24,19 +66,19 @@ export class PokemonController {
       let cards = [];
 
       // Buscar por diferentes criterios
-      if (name) {
+      if (parsedName) {
         cards = await localPokemonData.searchCardsByName(
-          name as string,
+          parsedName as string,
           limit * 2
         );
-      } else if (type) {
+      } else if (parsedType) {
         cards = await localPokemonData.searchCardsByType(
-          type as string,
+          parsedType as string,
           limit * 2
         );
-      } else if (supertype) {
+      } else if (parsedSupertype) {
         cards = await localPokemonData.searchCardsBySupertype(
-          supertype as string,
+          parsedSupertype as string,
           limit * 2
         );
       } else {
@@ -46,26 +88,31 @@ export class PokemonController {
       }
 
       // Filtros adicionales
-      if (subtype) {
+      if (parsedSubtype) {
         cards = cards.filter((card) =>
           card.subtypes?.some((st) =>
-            st.toLowerCase().includes((subtype as string).toLowerCase())
+            st.toLowerCase().includes((parsedSubtype as string).toLowerCase())
           )
         );
       }
 
-      if (rarity) {
+      if (parsedRarity) {
         cards = cards.filter((card) =>
-          card.rarity?.toLowerCase().includes((rarity as string).toLowerCase())
+          card.rarity?.toLowerCase().includes((parsedRarity as string).toLowerCase())
         );
       }
 
-      if (set) {
+      if (parsedSet) {
         cards = cards.filter(
           (card) =>
-            card.set?.id === set ||
-            card.set?.name.toLowerCase().includes((set as string).toLowerCase())
+            card.set?.id === parsedSet ||
+            card.set?.name.toLowerCase().includes((parsedSet as string).toLowerCase())
         );
+      }
+
+      // Ordenamiento
+      if (orderBy === 'name') {
+        cards.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
       }
 
       // Paginación

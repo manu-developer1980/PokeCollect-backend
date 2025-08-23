@@ -4,6 +4,7 @@ import { PokemonController } from '../controllers/pokemon.controller';
 const router = Router();
 
 // Rutas para cartas
+router.get('/cards', PokemonController.searchCards); // Ruta principal para búsqueda con query params
 router.get('/cards/search', PokemonController.searchCards);
 router.get('/cards/:id', PokemonController.getCardById);
 
