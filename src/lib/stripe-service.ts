@@ -366,6 +366,9 @@ export class StripeService {
   static async getUserPlan(userId: string): Promise<string> {
     // Por ahora devolvemos el plan gratuito por defecto
     // En el futuro, aquí se consultaría la base de datos para obtener la suscripción activa
+    console.log('🔍 DEBUG - getUserPlan:');
+    console.log('  - User ID:', userId);
+    console.log('  - Returning hardcoded plan: aprendiz');
     return 'aprendiz';
   }
 
@@ -378,20 +381,44 @@ export class StripeService {
     currentCount?: number
   ): boolean {
     const plan = this.getPlanFeatures(planId);
-    if (!plan) return false;
+    
+    console.log('🔍 DEBUG - canPerformAction:');
+    console.log('  - Plan ID:', planId);
+    console.log('  - Action:', action);
+    console.log('  - Current Count:', currentCount);
+    console.log('  - Plan Found:', !!plan);
+    console.log('  - Plan Details:', plan);
+    
+    if (!plan) {
+      console.log('❌ No plan found for planId:', planId);
+      return false;
+    }
 
+    let result = false;
     switch (action) {
       case 'addCard':
-        return plan.cardLimit === -1 || (currentCount || 0) < plan.cardLimit;
+        result = plan.cardLimit === -1 || (currentCount || 0) < plan.cardLimit;
+        console.log(`  - Card check: limit=${plan.cardLimit}, current=${currentCount || 0}, result=${result}`);
+        break;
       case 'createCollection':
-        return plan.collectionLimit === -1 || (currentCount || 0) < plan.collectionLimit;
+        result = plan.collectionLimit === -1 || (currentCount || 0) < plan.collectionLimit;
+        console.log(`  - Collection check: limit=${plan.collectionLimit}, current=${currentCount || 0}, result=${result}`);
+        break;
       case 'addToWishlist':
-        return plan.wishlistLimit === -1 || (currentCount || 0) < plan.wishlistLimit;
+        result = plan.wishlistLimit === -1 || (currentCount || 0) < plan.wishlistLimit;
+        console.log(`  - Wishlist check: limit=${plan.wishlistLimit}, current=${currentCount || 0}, result=${result}`);
+        break;
       case 'advancedSearch':
-        return plan.hasAdvancedSearch;
+        result = plan.hasAdvancedSearch;
+        console.log(`  - Advanced search check: allowed=${plan.hasAdvancedSearch}, result=${result}`);
+        break;
       default:
+        console.log('❌ Unknown action:', action);
         return false;
     }
+    
+    console.log('  - Final result:', result);
+    return result;
   }
 }
 

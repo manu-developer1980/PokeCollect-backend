@@ -40,12 +40,30 @@ export const createCollection = async (req: Request, res: Response) => {
       .eq("user_id", userId);
 
     // Obtener el plan actual del usuario
-     const userPlan = await StripeService.getUserPlan(userId);
-     const canCreate = StripeService.canPerformAction(userPlan, 'createCollection', currentCollections || 0);
+    const userPlan = await StripeService.getUserPlan(userId);
+    const planFeatures = StripeService.getPlanFeatures(userPlan);
+    
+    console.log('🔍 DEBUG - Create Collection:');
+    console.log('  - User ID:', userId);
+    console.log('  - User Plan:', userPlan);
+    console.log('  - Plan Features:', planFeatures);
+    console.log('  - Current Collections:', currentCollections);
+    console.log('  - Collection Limit:', planFeatures?.collectionLimit);
+    
+    const canCreate = StripeService.canPerformAction(userPlan, 'createCollection', currentCollections || 0);
+    console.log('  - Can Create:', canCreate);
+    
     if (!canCreate) {
+      console.log('❌ Collection creation blocked - limit reached');
       return res.status(403).json({ 
         error: "Collection limit reached", 
-        message: "You have reached the collection limit for your current plan" 
+        message: `You have reached the limit of ${planFeatures?.collectionLimit || 0} Collections in your ${planFeatures?.name || userPlan} plan.`,
+        details: {
+          currentPlan: userPlan,
+          planName: planFeatures?.name,
+          currentCollections: currentCollections || 0,
+          collectionLimit: planFeatures?.collectionLimit || 0
+        }
       });
     }
 
