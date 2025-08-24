@@ -1,5 +1,6 @@
 import Stripe from 'stripe';
 import { cacheService } from './cache-service';
+import { userService } from './user-service';
 
 // Inicializar Stripe solo si hay clave API
 const stripeKey = process.env.STRIPE_SECRET_KEY;
@@ -309,8 +310,19 @@ export class StripeService {
    */
   private async handleSubscriptionCreated(subscription: Stripe.Subscription): Promise<void> {
     console.log(`🎉 Nueva suscripción creada: ${subscription.id}`);
-    // Aquí se podría actualizar la base de datos del usuario
-    // Por ejemplo, actualizar el plan en Supabase
+    
+    try {
+      // Obtener el plan basado en el price_id
+      const planType = this.getPlanTypeFromPriceId(subscription.items.data[0]?.price?.id);
+      
+      if (planType && subscription.customer) {
+        // Aquí necesitaríamos el user_id del metadata o customer
+        // Por ahora solo logueamos la información
+        console.log(`📝 Nueva suscripción: customer=${subscription.customer}, plan=${planType}`);
+      }
+    } catch (error) {
+      console.error('❌ Error procesando nueva suscripción:', error);
+    }
   }
 
   /**
@@ -318,6 +330,28 @@ export class StripeService {
    */
   private async handleSubscriptionUpdated(subscription: Stripe.Subscription): Promise<void> {
     console.log(`🔄 Suscripción actualizada: ${subscription.id}`);
+    
+    try {
+      // Obtener el plan basado en el price_id
+      const planType = this.getPlanTypeFromPriceId(subscription.items.data[0]?.price?.id);
+      
+      if (planType) {
+        // Buscar usuario por subscription_id
+        const user = await userService.getUserByStripeSubscriptionId(subscription.id);
+        
+        if (user) {
+          // Actualizar el plan del usuario
+          await userService.updateUserPlan(user.id, planType);
+          console.log(`✅ Plan actualizado para usuario ${user.id}: ${planType}`);
+        } else {
+          console.log(`⚠️ Usuario no encontrado para subscription: ${subscription.id}`);
+        }
+      } else {
+        console.log(`⚠️ Plan no identificado para price_id: ${subscription.items.data[0]?.price?.id}`);
+      }
+    } catch (error) {
+      console.error('❌ Error actualizando plan del usuario:', error);
+    }
     
     // Limpiar caché de la suscripción
     const cacheKey = `stripe:subscription:${subscription.id}`;
@@ -360,16 +394,44 @@ export class StripeService {
 
   /**
    * Obtiene el plan actual del usuario
-   * Por ahora devuelve 'aprendiz' por defecto
-   * TODO: Implementar lógica para obtener el plan real basado en la suscripción
    */
   static async getUserPlan(userId: string): Promise<string> {
-    // Por ahora devolvemos el plan gratuito por defecto
-    // En el futuro, aquí se consultaría la base de datos para obtener la suscripción activa
-    console.log('🔍 DEBUG - getUserPlan:');
-    console.log('  - User ID:', userId);
-    console.log('  - Returning hardcoded plan: aprendiz');
-    return 'aprendiz';
+    try {
+      return await userService.getUserPlan(userId);
+    } catch (error) {
+      console.error('❌ Error obteniendo plan del usuario:', error);
+      return 'aprendiz'; // Plan por defecto en caso de error
+    }
+  }
+
+  /**
+   * Mapea un price_id de Stripe al tipo de plan correspondiente
+   */
+  private getPlanTypeFromPriceId(priceId?: string): string | null {
+    if (!priceId) return null;
+    
+    // Mapear los price_id a los tipos de plan
+    const priceIdToPlan: Record<string, string> = {
+      // Estos price_id deben coincidir con los configurados en Stripe
+      'price_aprendiz': 'aprendiz',
+      'price_coleccionista': 'coleccionista', 
+      'price_maestro': 'maestro'
+    };
+    
+    // Buscar por coincidencia exacta primero
+    if (priceIdToPlan[priceId]) {
+      return priceIdToPlan[priceId];
+    }
+    
+    // Buscar por coincidencia parcial en el nombre del price_id
+    for (const [key, planType] of Object.entries(priceIdToPlan)) {
+      if (priceId.includes(planType)) {
+        return planType;
+      }
+    }
+    
+    console.log(`⚠️ Price ID no reconocido: ${priceId}`);
+    return null;
   }
 
   /**
