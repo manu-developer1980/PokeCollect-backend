@@ -22,7 +22,7 @@ export class AutoUpdateController {
         }
       });
     } catch (error) {
-      console.error('Error getting auto-update status:', error);
+      // Error getting auto-update status
       res.status(500).json({
         success: false,
         error: 'Failed to get auto-update status',
@@ -53,7 +53,7 @@ export class AutoUpdateController {
         }
       });
     } catch (error) {
-      console.error('Error checking for updates:', error);
+      // Error checking for updates
       res.status(500).json({
         success: false,
         error: 'Failed to check for updates',
@@ -81,12 +81,12 @@ export class AutoUpdateController {
       // Ejecutar actualización en background
       autoUpdateService.forceUpdate().then((success) => {
         if (success) {
-          console.log('✅ Manual update completed successfully');
+          // Manual update completed successfully
         } else {
-          console.log('❌ Manual update failed');
+          // Manual update failed
         }
       }).catch((error) => {
-        console.error('❌ Manual update error:', error);
+        // Manual update error
       });
 
       res.json({
@@ -97,7 +97,7 @@ export class AutoUpdateController {
         }
       });
     } catch (error) {
-      console.error('Error starting manual update:', error);
+      // Error starting manual update
       res.status(500).json({
         success: false,
         error: 'Failed to start update',
@@ -155,7 +155,7 @@ export class AutoUpdateController {
         }
       });
     } catch (error) {
-      console.error('Error updating auto-update config:', error);
+      // Error updating auto-update config
       res.status(500).json({
         success: false,
         error: 'Failed to update configuration',
@@ -191,7 +191,7 @@ export class AutoUpdateController {
         data: history
       });
     } catch (error) {
-      console.error('Error getting update history:', error);
+      // Error getting update history
       res.status(500).json({
         success: false,
         error: 'Failed to get update history',
@@ -228,7 +228,7 @@ export class AutoUpdateController {
         data: health
       });
     } catch (error) {
-      console.error('Error in auto-update health check:', error);
+      // Error in auto-update health check
       res.status(500).json({
         success: false,
         error: 'Auto-update health check failed',

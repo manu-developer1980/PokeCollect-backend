@@ -50,10 +50,10 @@ export class CacheService {
     const value = cache.get<T>(key);
     if (value !== undefined) {
       this.hitCount++;
-      console.log(`🎯 Cache HIT para clave: ${key}`);
+      // Cache hit
     } else {
       this.missCount++;
-      console.log(`❌ Cache MISS para clave: ${key}`);
+      // Cache miss
     }
     return value;
   }
@@ -64,7 +64,7 @@ export class CacheService {
   set<T>(key: string, value: T, ttl?: number): boolean {
     const success = cache.set(key, value, ttl || DEFAULT_TTL);
     if (success) {
-      console.log(`💾 Valor guardado en caché: ${key} (TTL: ${ttl || DEFAULT_TTL}s)`);
+      // Valor guardado en caché
     }
     return success;
   }
@@ -75,7 +75,7 @@ export class CacheService {
   del(key: string): number {
     const deleted = cache.del(key);
     if (deleted > 0) {
-      console.log(`🗑️ Eliminado del caché: ${key}`);
+      // Eliminado del caché
     }
     return deleted;
   }
@@ -94,7 +94,7 @@ export class CacheService {
     cache.flushAll();
     this.hitCount = 0;
     this.missCount = 0;
-    console.log('🧹 Caché completamente limpiado');
+    // Caché limpiado
   }
 
   /**
@@ -172,7 +172,7 @@ export const cacheService = CacheService.getInstance();
 if (process.env.NODE_ENV === 'development') {
   // Limpiar caché cada 30 minutos en desarrollo
   setInterval(() => {
-    console.log('🔄 Limpieza automática de caché en desarrollo');
+    // Limpieza automática de caché
     cacheService.flush();
   }, 30 * 60 * 1000);
 }

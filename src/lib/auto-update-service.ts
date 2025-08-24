@@ -55,12 +55,11 @@ export class AutoUpdateService {
    */
   start(): void {
     if (!this.config.enabled) {
-      console.log('🔄 Auto-update service is disabled');
+      // Auto-update service deshabilitado
       return;
     }
 
-    console.log('🚀 Starting auto-update service...');
-    console.log(`📅 Check interval: ${this.config.checkIntervalHours} hours`);
+    // Iniciando servicio de auto-actualización
     
     // Verificar inmediatamente al iniciar
     this.checkForUpdates();
@@ -78,7 +77,7 @@ export class AutoUpdateService {
     if (this.updateInterval) {
       clearInterval(this.updateInterval);
       this.updateInterval = undefined;
-      console.log('⏹️ Auto-update service stopped');
+      // Servicio de auto-actualización detenido
     }
   }
 
@@ -87,12 +86,12 @@ export class AutoUpdateService {
    */
   async checkForUpdates(): Promise<boolean> {
     if (this.status.isUpdating) {
-      console.log('⏳ Update already in progress, skipping check');
+      // Actualización en progreso, saltando verificación
       return false;
     }
 
     try {
-      console.log('🔍 Checking for updates...');
+      // Verificando actualizaciones
       this.status.lastCheck = new Date();
       this.status.error = undefined;
 
@@ -100,7 +99,7 @@ export class AutoUpdateService {
       this.status.latestVersion = latestVersion;
 
       if (this.isNewerVersion(latestVersion, this.status.currentVersion)) {
-        console.log(`📦 New version available: ${latestVersion} (current: ${this.status.currentVersion})`);
+        // Nueva versión disponible
         this.status.updateAvailable = true;
         
         // Auto-update si está habilitado
@@ -111,7 +110,7 @@ export class AutoUpdateService {
         this.saveStatus();
         return true;
       } else {
-        console.log('✅ No updates available');
+        // No hay actualizaciones disponibles
         this.status.updateAvailable = false;
         this.saveStatus();
         return false;
@@ -133,7 +132,7 @@ export class AutoUpdateService {
     }
 
     try {
-      console.log('🔄 Starting data update...');
+      // Starting data update
       this.status.isUpdating = true;
       this.saveStatus();
 
@@ -162,7 +161,7 @@ export class AutoUpdateService {
       this.status.isUpdating = false;
       this.status.error = undefined;
 
-      console.log(`✅ Update completed successfully to version ${this.status.currentVersion}`);
+      // Actualización completada exitosamente
       this.saveStatus();
       return true;
 
@@ -174,7 +173,7 @@ export class AutoUpdateService {
       // Intentar restaurar backup
       try {
         await this.restoreBackup();
-        console.log('🔄 Backup restored successfully');
+        // Backup restored successfully
       } catch (restoreError) {
         console.error('❌ Failed to restore backup:', restoreError);
       }
@@ -227,21 +226,21 @@ export class AutoUpdateService {
    * Crea un backup de los datos actuales
    */
   private async createBackup(): Promise<void> {
-    console.log('💾 Creating backup...');
+    // Creating backup
     
     if (fs.existsSync(this.config.backupPath)) {
       await execAsync(`rm -rf "${this.config.backupPath}"`);
     }
     
     await execAsync(`cp -r "${this.config.dataPath}" "${this.config.backupPath}"`);
-    console.log('✅ Backup created successfully');
+    // Backup created successfully
   }
 
   /**
    * Descarga los datos más recientes
    */
   private async downloadLatestData(): Promise<string> {
-    console.log('⬇️ Downloading latest data...');
+    // Downloading latest data
     
     const tempPath = path.join(process.cwd(), 'temp-pokemon-data');
     
@@ -253,7 +252,7 @@ export class AutoUpdateService {
       `git clone --depth 1 --branch ${this.status.latestVersion} ${this.config.repositoryUrl} "${tempPath}"`
     );
     
-    console.log('✅ Data downloaded successfully');
+    // Data downloaded successfully
     return tempPath;
   }
 
@@ -261,7 +260,7 @@ export class AutoUpdateService {
    * Valida que los datos descargados sean correctos
    */
   private async validateData(dataPath: string): Promise<boolean> {
-    console.log('🔍 Validating downloaded data...');
+    // Validating downloaded data
     
     try {
       // Verificar que existan las carpetas principales
@@ -290,7 +289,7 @@ export class AutoUpdateService {
         return false;
       }
       
-      console.log(`✅ Data validation passed (${sets.length} sets found)`);
+      // Data validation passed
       return true;
       
     } catch (error) {
@@ -303,7 +302,7 @@ export class AutoUpdateService {
    * Reemplaza los datos actuales con los nuevos
    */
   private async replaceData(newDataPath: string): Promise<void> {
-    console.log('🔄 Replacing current data...');
+    // Replacing current data
     
     // Eliminar datos actuales
     await execAsync(`rm -rf "${this.config.dataPath}"`);
@@ -311,14 +310,14 @@ export class AutoUpdateService {
     // Mover nuevos datos
     await execAsync(`mv "${newDataPath}" "${this.config.dataPath}"`);
     
-    console.log('✅ Data replaced successfully');
+    // Data replaced successfully
   }
 
   /**
    * Recarga los datos en memoria
    */
   private async reloadData(): Promise<void> {
-    console.log('🔄 Reloading data in memory...');
+    // Reloading data in memory
     
     // Limpiar caché y recargar datos
     localPokemonData.clearCache();
@@ -327,7 +326,7 @@ export class AutoUpdateService {
     await localPokemonData.getSets('en');
     await localPokemonData.getAllCards();
     
-    console.log('✅ Data reloaded successfully');
+    // Data reloaded successfully
   }
 
   /**
@@ -338,7 +337,7 @@ export class AutoUpdateService {
       throw new Error('No backup available to restore');
     }
     
-    console.log('🔄 Restoring backup...');
+    // Restoring backup
     
     await execAsync(`rm -rf "${this.config.dataPath}"`);
     await execAsync(`mv "${this.config.backupPath}" "${this.config.dataPath}"`);
@@ -418,7 +417,7 @@ export class AutoUpdateService {
    * Fuerza una verificación manual de actualizaciones
    */
   async forceCheck(): Promise<boolean> {
-    console.log('🔄 Manual update check triggered');
+    // Manual update check triggered
     return await this.checkForUpdates();
   }
 
@@ -426,7 +425,7 @@ export class AutoUpdateService {
    * Fuerza una actualización manual
    */
   async forceUpdate(): Promise<boolean> {
-    console.log('🔄 Manual update triggered');
+    // Manual update triggered
     
     // Primero verificar si hay actualizaciones
     const hasUpdates = await this.checkForUpdates();
@@ -434,7 +433,7 @@ export class AutoUpdateService {
     if (hasUpdates || this.status.updateAvailable) {
       return await this.performUpdate();
     } else {
-      console.log('ℹ️ No updates available to install');
+      // No updates available to install
       return false;
     }
   }

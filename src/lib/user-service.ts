@@ -135,7 +135,7 @@ export class UserService {
 
       if (error) throw error;
 
-      console.log(`✅ Plan actualizado para usuario ${userId}: ${planType}`);
+      // Plan actualizado exitosamente
       return data;
     } catch (error) {
       console.error('❌ Error actualizando plan del usuario:', error);
@@ -173,7 +173,7 @@ export class UserService {
 
       if (error) throw error;
 
-      console.log(`✅ Información de Stripe actualizada para usuario ${userId}`);
+      // Información de Stripe actualizada
       return data;
     } catch (error) {
       console.error('❌ Error actualizando información de Stripe:', error);
@@ -189,12 +189,12 @@ export class UserService {
       const user = await this.getUserById(userId);
       
       if (!user) {
-        console.log(`⚠️ Usuario ${userId} no encontrado, devolviendo plan por defecto: aprendiz`);
+        // Usuario no encontrado, usando plan por defecto
         return 'aprendiz';
       }
 
       const planType = user.plan_type || 'aprendiz';
-      console.log(`🔍 Plan obtenido para usuario ${userId}: ${planType}`);
+      // Plan obtenido exitosamente
       return planType;
     } catch (error) {
       console.error('❌ Error obteniendo plan del usuario:', error);

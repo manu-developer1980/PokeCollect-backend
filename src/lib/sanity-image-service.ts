@@ -16,26 +16,26 @@ export class SanityImageService {
       // Verificar si la imagen ya existe en Sanity
       const exists = await sanityHelpers.imageExists(cardId, imageType);
       if (exists) {
-        console.log(`Image ${cardId} (${imageType}) already exists in Sanity`);
+        // Image already exists in Sanity
         return null;
       }
 
       // Obtener información de la carta
       const card = await localPokemonData.getCardById(cardId);
       if (!card) {
-        console.error(`Card ${cardId} not found in local data`);
+        // Card not found in local data
         return null;
       }
 
       if (!card.set) {
-        console.error(`Card ${cardId} has no set information`);
+        // Card has no set information
         return null;
       }
 
       // Generar nombre de archivo
       const filename = `${cardId}_${imageType}.png`;
       
-      console.log(`Uploading ${filename} to Sanity...`);
+      // Uploading image to Sanity
       
       // Subir imagen a Sanity
       const asset = await sanityHelpers.uploadImageFromUrl(imageUrl, filename);
@@ -59,11 +59,11 @@ export class SanityImageService {
       };
 
       const result = await sanityHelpers.createCardImageDocument(imageDocument);
-      console.log(`Successfully uploaded ${filename} to Sanity with ID: ${result._id}`);
+      // Successfully uploaded image to Sanity
       
       return result._id;
     } catch (error) {
-      console.error(`Error migrating image ${cardId} (${imageType}):`, error);
+      // Error migrating image
       return null;
     }
   }
@@ -73,10 +73,10 @@ export class SanityImageService {
    */
   async migrateSetImages(setId: string, batchSize: number = 10): Promise<void> {
     try {
-      console.log(`Starting migration for set: ${setId}`);
+      // Starting migration for set
       
       const cards = await localPokemonData.getCardsBySet(setId);
-      console.log(`Found ${cards.length} cards in set ${setId}`);
+      // Found cards in set
 
       let processed = 0;
       let successful = 0;
@@ -115,11 +115,11 @@ export class SanityImageService {
             successful++;
           } else {
             failed++;
-            console.error(`Failed to migrate ${result.cardId} (${result.type}):`, 'error' in result ? result.error : 'Unknown error');
+            // Failed to migrate card image
           }
         });
 
-        console.log(`Processed batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(cards.length / batchSize)}. Progress: ${processed} images (${successful} successful, ${failed} failed)`);
+        // Processed batch progress
         
         // Pausa entre lotes para no sobrecargar la API
         if (i + batchSize < cards.length) {
@@ -127,12 +127,12 @@ export class SanityImageService {
         }
       }
 
-      console.log(`Migration completed for set ${setId}:`);
-      console.log(`- Total images processed: ${processed}`);
-      console.log(`- Successful uploads: ${successful}`);
-      console.log(`- Failed uploads: ${failed}`);
+      // Migration completed for set
+      // Total images processed
+      // Successful uploads
+      // Failed uploads
     } catch (error) {
-      console.error(`Error migrating set ${setId}:`, error);
+      // Error migrating set
       throw error;
     }
   }
@@ -142,10 +142,10 @@ export class SanityImageService {
    */
   async migrateAllImages(batchSize: number = 5): Promise<void> {
     try {
-      console.log('Starting full migration to Sanity...');
+      // Starting full migration to Sanity
       
       const sets = await localPokemonData.getSets('en');
-      console.log(`Found ${sets.length} sets to migrate`);
+      // Found sets to migrate
 
       let totalProcessed = 0;
       let totalSuccessful = 0;
@@ -153,7 +153,7 @@ export class SanityImageService {
 
       for (let i = 0; i < sets.length; i++) {
         const set = sets[i];
-        console.log(`\n[${i + 1}/${sets.length}] Migrating set: ${set.id} (${set.name})`);
+        // Migrating set
         
         try {
           const beforeStats = await this.getMigrationStats();
@@ -164,29 +164,29 @@ export class SanityImageService {
           totalProcessed += setProcessed;
           totalSuccessful += setProcessed; // Asumimos que si no hay error, fue exitoso
           
-          console.log(`Set ${set.id} completed. Images in Sanity: ${afterStats.total}`);
+          // Set completed
         } catch (error) {
-          console.error(`Failed to migrate set ${set.id}:`, error);
+          // Failed to migrate set
           totalFailed++;
         }
 
         // Pausa entre sets
         if (i + 1 < sets.length) {
-          console.log('Waiting 2 seconds before next set...');
+          // Waiting before next set
           await new Promise(resolve => setTimeout(resolve, 2000));
         }
       }
 
-      console.log('\n=== MIGRATION SUMMARY ===');
-      console.log(`Total sets processed: ${sets.length}`);
-      console.log(`Total images processed: ${totalProcessed}`);
-      console.log(`Successful uploads: ${totalSuccessful}`);
-      console.log(`Failed uploads: ${totalFailed}`);
+      // Migration summary
+      // Total sets processed
+      // Total images processed
+      // Successful uploads
+      // Failed uploads
       
       const finalStats = await this.getMigrationStats();
-      console.log(`Final count in Sanity: ${finalStats.total} images`);
+      // Final count in Sanity
     } catch (error) {
-      console.error('Error during full migration:', error);
+      // Error during full migration
       throw error;
     }
   }
@@ -206,7 +206,7 @@ export class SanityImageService {
       const stats = await sanityReadClient.fetch(query);
       return stats;
     } catch (error) {
-      console.error('Error getting migration stats:', error);
+      // Error getting migration stats
       return { total: 0, small: 0, large: 0 };
     }
   }
@@ -219,10 +219,10 @@ export class SanityImageService {
       const query = `count(*[_type == "pokemonCardImage"])`;
       // Usar cliente de lectura para prueba de conexión
       await sanityReadClient.fetch(query);
-      console.log('✅ Sanity connection successful');
+      // Sanity connection successful
       return true;
     } catch (error) {
-      console.error('❌ Sanity connection failed:', error);
+      // Sanity connection failed
       return false;
     }
   }
@@ -232,12 +232,12 @@ export class SanityImageService {
    */
   async clearAllImages(): Promise<void> {
     try {
-      console.log('⚠️  WARNING: This will delete ALL images from Sanity!');
+      // WARNING: This will delete ALL images from Sanity
       
       const query = `*[_type == "pokemonCardImage"]._id`;
       const ids = await sanityClient.fetch(query);
       
-      console.log(`Found ${ids.length} images to delete`);
+      // Found images to delete
       
       if (ids.length > 0) {
         const transaction = sanityClient.transaction();
@@ -246,12 +246,12 @@ export class SanityImageService {
         });
         
         await transaction.commit();
-        console.log(`✅ Deleted ${ids.length} images from Sanity`);
+        // Deleted images from Sanity
       } else {
-        console.log('No images found to delete');
+        // No images found to delete
       }
     } catch (error) {
-      console.error('Error clearing images:', error);
+      // Error clearing images
       throw error;
     }
   }

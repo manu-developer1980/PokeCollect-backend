@@ -71,7 +71,7 @@ export class RateLimiter {
           resetTime: new Date(client.resetTime).toISOString()
         });
         
-        console.log(`🚫 Rate limit excedido para ${clientId}: ${client.count}/${this.config.maxRequests}`);
+        // Rate limit excedido
         return;
       }
 
@@ -82,7 +82,7 @@ export class RateLimiter {
         'X-RateLimit-Reset': new Date(client.resetTime).toISOString()
       });
 
-      console.log(`✅ Rate limit OK para ${clientId}: ${client.count}/${this.config.maxRequests}`);
+      // Rate limit OK
       next();
     };
   }
@@ -110,7 +110,7 @@ export class RateLimiter {
     }
     
     if (cleaned > 0) {
-      console.log(`🧹 Limpiados ${cleaned} clientes expirados del rate limiter`);
+      // Clientes expirados limpiados
     }
   }
 
@@ -144,7 +144,7 @@ export class RateLimiter {
    */
   resetAll(): void {
     this.clients.clear();
-    console.log('🔄 Todos los contadores de rate limit reseteados');
+    // Contadores de rate limit reseteados
   }
 }
 

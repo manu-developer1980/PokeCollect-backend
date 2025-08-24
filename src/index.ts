@@ -35,7 +35,7 @@ app.use(
       if (allowedOrigins.indexOf(origin) !== -1) {
         callback(null, true);
       } else {
-        console.log(`CORS: Origin ${origin} not allowed`);
+        // CORS: Origin not allowed
         callback(new Error("Not allowed by CORS"));
       }
     },
@@ -75,17 +75,17 @@ app.get("/api/health", (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  // Servidor ejecutándose en puerto
   
   // Inicializar datos locales al arrancar
   localPokemonData.getSets('en').then(() => {
-    console.log('✅ Local Pokemon data initialized');
+    // Datos locales de Pokemon inicializados
     
     // Inicializar servicio de auto-update después de cargar los datos
     autoUpdateService.start();
-    console.log('🚀 Auto-update service initialized');
+    // Servicio de auto-actualización inicializado
   }).catch((error: any) => {
-     console.error('❌ Failed to initialize local Pokemon data:', error);
+     // Error al inicializar datos locales de Pokemon
    });
 });
 export default app;

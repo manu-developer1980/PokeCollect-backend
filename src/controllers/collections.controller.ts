@@ -36,34 +36,33 @@ export const createCollection = async (req: Request, res: Response) => {
     // Obtener el número actual de colecciones del usuario
     const { count: currentCollections } = await supabase
       .from("collections")
-      .select("*", { count: 'exact', head: true })
+      .select("*", { count: "exact", head: true })
       .eq("user_id", userId);
 
     // Obtener el plan actual del usuario
     const userPlan = await StripeService.getUserPlan(userId);
     const planFeatures = StripeService.getPlanFeatures(userPlan);
-    
-    console.log('🔍 DEBUG - Create Collection:');
-    console.log('  - User ID:', userId);
-    console.log('  - User Plan:', userPlan);
-    console.log('  - Plan Features:', planFeatures);
-    console.log('  - Current Collections:', currentCollections);
-    console.log('  - Collection Limit:', planFeatures?.collectionLimit);
-    
-    const canCreate = StripeService.canPerformAction(userPlan, 'createCollection', currentCollections || 0);
-    console.log('  - Can Create:', canCreate);
-    
+
+    // Verificando límites de colección para el usuario
+    const canCreate = StripeService.canPerformAction(
+      userPlan,
+      "createCollection",
+      currentCollections || 0
+    );
+
     if (!canCreate) {
-      console.log('❌ Collection creation blocked - limit reached');
-      return res.status(403).json({ 
-        error: "Collection limit reached", 
-        message: `You have reached the limit of ${planFeatures?.collectionLimit || 0} Collections in your ${planFeatures?.name || userPlan} plan.`,
+      // Límite de colecciones alcanzado
+      return res.status(403).json({
+        error: "Collection limit reached",
+        message: `You have reached the limit of ${
+          planFeatures?.collectionLimit || 0
+        } Collections in your ${planFeatures?.name || userPlan} plan.`,
         details: {
           currentPlan: userPlan,
           planName: planFeatures?.name,
           currentCollections: currentCollections || 0,
-          collectionLimit: planFeatures?.collectionLimit || 0
-        }
+          collectionLimit: planFeatures?.collectionLimit || 0,
+        },
       });
     }
 
@@ -73,9 +72,9 @@ export const createCollection = async (req: Request, res: Response) => {
       .insert({
         user_id: userId,
         name,
-        description: description || '',
+        description: description || "",
         created_at: new Date(),
-        updated_at: new Date()
+        updated_at: new Date(),
       })
       .select()
       .single();
@@ -115,16 +114,20 @@ export const addCardToCollection = async (req: Request, res: Response) => {
     // Obtener el número actual de cartas del usuario en todas las colecciones
     const { count: currentCards } = await supabase
       .from("collection_cards")
-      .select("*", { count: 'exact', head: true })
+      .select("*", { count: "exact", head: true })
       .eq("collection_id", collectionId);
 
     // Verificar límites del plan
     const userPlan = await StripeService.getUserPlan(userId);
-    const canAddCard = StripeService.canPerformAction(userPlan, 'addCard', currentCards || 0);
+    const canAddCard = StripeService.canPerformAction(
+      userPlan,
+      "addCard",
+      currentCards || 0
+    );
     if (!canAddCard) {
-      return res.status(403).json({ 
-        error: "Card limit reached", 
-        message: "You have reached the card limit for your current plan" 
+      return res.status(403).json({
+        error: "Card limit reached",
+        message: "You have reached the card limit for your current plan",
       });
     }
 

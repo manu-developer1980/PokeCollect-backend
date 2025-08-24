@@ -151,7 +151,7 @@ export class StripeService {
         },
       });
 
-      console.log(`✅ Sesión de checkout creada para usuario ${params.userId}:`, session.id);
+      // Sesión de checkout creada exitosamente
       return session;
     } catch (error) {
       console.error('❌ Error creando sesión de checkout:', error);
@@ -169,7 +169,7 @@ export class StripeService {
       // Intentar obtener del caché primero
       const cachedSubscription = cacheService.get<Stripe.Subscription>(cacheKey);
       if (cachedSubscription) {
-        console.log(`🎯 Suscripción ${subscriptionId} devuelta desde caché`);
+        // Suscripción obtenida desde caché
         return cachedSubscription;
       }
 
@@ -178,7 +178,7 @@ export class StripeService {
       
       // Guardar en caché por 5 minutos
       cacheService.set(cacheKey, subscription, 300);
-      console.log(`💾 Suscripción ${subscriptionId} guardada en caché`);
+      // Suscripción guardada en caché
       
       return subscription;
     } catch (error) {
@@ -201,7 +201,7 @@ export class StripeService {
       const cacheKey = `stripe:subscription:${subscriptionId}`;
       cacheService.del(cacheKey);
 
-      console.log(`✅ Suscripción ${subscriptionId} marcada para cancelación`);
+      // Suscripción marcada para cancelación
       return subscription;
     } catch (error) {
       console.error(`❌ Error cancelando suscripción ${subscriptionId}:`, error);
@@ -223,7 +223,7 @@ export class StripeService {
       const cacheKey = `stripe:subscription:${subscriptionId}`;
       cacheService.del(cacheKey);
 
-      console.log(`✅ Suscripción ${subscriptionId} reactivada`);
+      // Suscripción reactivada
       return subscription;
     } catch (error) {
       console.error(`❌ Error reactivando suscripción ${subscriptionId}:`, error);
@@ -258,7 +258,7 @@ export class StripeService {
       const cacheKey = `stripe:subscription:${subscriptionId}`;
       cacheService.del(cacheKey);
 
-      console.log(`✅ Suscripción ${subscriptionId} actualizada al precio ${newPriceId}`);
+      // Suscripción actualizada al nuevo precio
       return updatedSubscription;
     } catch (error) {
       console.error(`❌ Error actualizando suscripción ${subscriptionId}:`, error);
@@ -308,7 +308,7 @@ export class StripeService {
       const user = await userService.getUserById(userId);
       
       if (!user || !user.stripe_customer_id) {
-        console.log(`ℹ️ Usuario ${userId} no tiene customer ID de Stripe`);
+        // Usuario sin customer ID de Stripe
         return;
       }
 
@@ -321,17 +321,17 @@ export class StripeService {
       });
 
       if (subscriptions.data.length === 0) {
-        console.log(`ℹ️ Usuario ${userId} no tiene suscripciones activas`);
+        // Usuario sin suscripciones activas
         return;
       }
 
       // Cancelar todas las suscripciones activas
       for (const subscription of subscriptions.data) {
         await this.cancelSubscription(subscription.id);
-        console.log(`✅ Suscripción ${subscription.id} cancelada para usuario ${userId}`);
+        // Suscripción cancelada
       }
 
-      console.log(`✅ Todas las suscripciones del usuario ${userId} han sido canceladas`);
+      // Todas las suscripciones canceladas
     } catch (error) {
       console.error(`❌ Error cancelando suscripciones del usuario ${userId}:`, error);
       throw error;
@@ -348,7 +348,7 @@ export class StripeService {
       // Intentar obtener del caché primero
       const cachedInvoices = cacheService.get<Stripe.Invoice[]>(cacheKey);
       if (cachedInvoices) {
-        console.log(`🎯 Facturas del cliente ${customerId} devueltas desde caché`);
+        // Facturas obtenidas desde caché
         return cachedInvoices;
       }
 
@@ -360,7 +360,7 @@ export class StripeService {
 
       // Guardar en caché por 10 minutos
       cacheService.set(cacheKey, invoices.data, 600);
-      console.log(`💾 Facturas del cliente ${customerId} guardadas en caché`);
+      // Facturas guardadas en caché
       
       return invoices.data;
     } catch (error) {
@@ -380,14 +380,14 @@ export class StripeService {
       
       // En desarrollo, saltarse la verificación de firma si no hay secret configurado
       if (!endpointSecret || process.env.NODE_ENV === 'development') {
-        console.log('⚠️ Modo desarrollo: saltando verificación de firma de webhook');
+        // Modo desarrollo: saltando verificación de firma de webhook
         event = JSON.parse(payload);
       } else {
         const stripeInstance = ensureStripeConfigured();
         event = stripeInstance.webhooks.constructEvent(payload, signature, endpointSecret);
       }
       
-      console.log(`📨 Webhook recibido: ${event.type}`);
+      // Webhook recibido
       
       // Procesar diferentes tipos de eventos
       switch (event.type) {
@@ -407,7 +407,7 @@ export class StripeService {
           await this.handlePaymentFailed(event.data.object as Stripe.Invoice);
           break;
         default:
-          console.log(`⚠️ Evento no manejado: ${event.type}`);
+          // Evento no manejado
       }
 
       return event;
@@ -421,20 +421,20 @@ export class StripeService {
    * Maneja la creación de una nueva suscripción
    */
   private async handleSubscriptionCreated(subscription: Stripe.Subscription): Promise<void> {
-    console.log(`🎉 Nueva suscripción creada: ${subscription.id}`);
+    // Nueva suscripción creada
     
     try {
       // Obtener el plan basado en el price_id
       const planType = this.getPlanTypeFromPriceId(subscription.items.data[0]?.price?.id);
       
       if (planType && subscription.customer) {
-        console.log(`📝 Nueva suscripción: customer=${subscription.customer}, plan=${planType}`);
+        // Nueva suscripción registrada
         
         // Buscar usuario por customer_id
         const user = await userService.getUserByStripeCustomerId(subscription.customer as string);
         
         if (user) {
-          console.log(`👤 Usuario encontrado: ${user.id}`);
+          // Usuario encontrado
           
           // Cancelar todas las suscripciones anteriores del usuario (excepto la nueva)
           try {
@@ -450,24 +450,24 @@ export class StripeService {
             );
             
             if (subscriptionsToCancel.length > 0) {
-              console.log(`🔄 Cancelando ${subscriptionsToCancel.length} suscripciones anteriores...`);
+              // Cancelando suscripciones anteriores
               
               for (const oldSubscription of subscriptionsToCancel) {
                 await this.cancelSubscription(oldSubscription.id);
-                console.log(`✅ Suscripción anterior ${oldSubscription.id} cancelada`);
+                // Suscripción anterior cancelada
               }
             }
             
             // Actualizar el plan del usuario
             await userService.updateUserPlan(user.id, planType);
-            console.log(`✅ Plan actualizado para usuario ${user.id}: ${planType}`);
+            // Plan actualizado
             
           } catch (cancelError) {
             console.error('❌ Error cancelando suscripciones anteriores:', cancelError);
             // No lanzamos el error para no interrumpir el proceso principal
           }
         } else {
-          console.log(`⚠️ Usuario no encontrado para customer: ${subscription.customer}`);
+          // Usuario no encontrado para customer
         }
       }
     } catch (error) {
@@ -479,7 +479,7 @@ export class StripeService {
    * Maneja la actualización de una suscripción
    */
   private async handleSubscriptionUpdated(subscription: Stripe.Subscription): Promise<void> {
-    console.log(`🔄 Suscripción actualizada: ${subscription.id}`);
+    // Suscripción actualizada
     
     try {
       // Obtener el plan basado en el price_id
@@ -492,12 +492,12 @@ export class StripeService {
         if (user) {
           // Actualizar el plan del usuario
           await userService.updateUserPlan(user.id, planType);
-          console.log(`✅ Plan actualizado para usuario ${user.id}: ${planType}`);
+          // Plan actualizado para usuario
         } else {
-          console.log(`⚠️ Usuario no encontrado para subscription: ${subscription.id}`);
+          // Usuario no encontrado para suscripción
         }
       } else {
-        console.log(`⚠️ Plan no identificado para price_id: ${subscription.items.data[0]?.price?.id}`);
+        // Plan no identificado para price_id
       }
     } catch (error) {
       console.error('❌ Error actualizando plan del usuario:', error);
@@ -512,7 +512,7 @@ export class StripeService {
    * Maneja la eliminación de una suscripción
    */
   private async handleSubscriptionDeleted(subscription: Stripe.Subscription): Promise<void> {
-    console.log(`🗑️ Suscripción eliminada: ${subscription.id}`);
+    // Suscripción eliminada
     
     // Limpiar caché de la suscripción
     const cacheKey = `stripe:subscription:${subscription.id}`;
@@ -523,7 +523,7 @@ export class StripeService {
    * Maneja un pago exitoso
    */
   private async handlePaymentSucceeded(invoice: Stripe.Invoice): Promise<void> {
-    console.log(`💰 Pago exitoso para factura: ${invoice.id}`);
+    // Pago exitoso
     // Aquí se podría enviar un email de confirmación
   }
 
@@ -531,7 +531,7 @@ export class StripeService {
    * Maneja un pago fallido
    */
   private async handlePaymentFailed(invoice: Stripe.Invoice): Promise<void> {
-    console.log(`❌ Pago fallido para factura: ${invoice.id}`);
+    // Pago fallido
     // Aquí se podría enviar un email de notificación
   }
 
@@ -576,11 +576,11 @@ export class StripeService {
     
     // Si no se encuentra, verificar si es un status de suscripción
     if (priceId === 'active' || priceId === 'canceled' || priceId === 'incomplete') {
-      console.log(`⚠️ Se recibió un status de suscripción en lugar de Price ID: ${priceId}`);
+      // Status de suscripción recibido en lugar de Price ID
       return 'aprendiz'; // Fallback al plan gratuito
     }
     
-    console.log(`⚠️ Price ID no reconocido: ${priceId}`);
+    // Price ID no reconocido
     return 'aprendiz'; // Fallback al plan gratuito en lugar de null
   }
 
@@ -594,15 +594,10 @@ export class StripeService {
   ): boolean {
     const plan = this.getPlanFeatures(planId);
     
-    console.log('🔍 DEBUG - canPerformAction:');
-    console.log('  - Plan ID:', planId);
-    console.log('  - Action:', action);
-    console.log('  - Current Count:', currentCount);
-    console.log('  - Plan Found:', !!plan);
-    console.log('  - Plan Details:', plan);
+    // Verificando permisos de acción para el plan
     
     if (!plan) {
-      console.log('❌ No plan found for planId:', planId);
+      // Plan no encontrado
       return false;
     }
 
@@ -610,26 +605,26 @@ export class StripeService {
     switch (action) {
       case 'addCard':
         result = plan.cardLimit === -1 || (currentCount || 0) < plan.cardLimit;
-        console.log(`  - Card check: limit=${plan.cardLimit}, current=${currentCount || 0}, result=${result}`);
+        // Verificando límite de cartas
         break;
       case 'createCollection':
         result = plan.collectionLimit === -1 || (currentCount || 0) < plan.collectionLimit;
-        console.log(`  - Collection check: limit=${plan.collectionLimit}, current=${currentCount || 0}, result=${result}`);
+        // Verificando límite de colecciones
         break;
       case 'addToWishlist':
         result = plan.wishlistLimit === -1 || (currentCount || 0) < plan.wishlistLimit;
-        console.log(`  - Wishlist check: limit=${plan.wishlistLimit}, current=${currentCount || 0}, result=${result}`);
+        // Verificando límite de wishlist
         break;
       case 'advancedSearch':
         result = plan.hasAdvancedSearch;
-        console.log(`  - Advanced search check: allowed=${plan.hasAdvancedSearch}, result=${result}`);
+        // Verificando búsqueda avanzada
         break;
       default:
-        console.log('❌ Unknown action:', action);
+        // Acción desconocida
         return false;
     }
     
-    console.log('  - Final result:', result);
+    // Resultado final de verificación
     return result;
   }
 }

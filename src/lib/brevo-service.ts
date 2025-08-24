@@ -109,11 +109,11 @@ export class BrevoService {
    */
   async sendTransactionalEmail(emailData: BrevoEmailData): Promise<any> {
     try {
-      console.log(`📧 Enviando email a ${emailData.to.map(t => t.email).join(', ')}`);
+      // Enviando email
       
       const result = await this.makeRequest('/smtp/email', 'POST', emailData);
       
-      console.log('✅ Email enviado exitosamente:', result.messageId);
+      // Email enviado exitosamente
       return { success: true, messageId: result.messageId };
     } catch (error) {
       console.error('❌ Error enviando email:', error);
@@ -128,14 +128,14 @@ export class BrevoService {
     try {
       const cacheKey = `brevo:contact:${contactData.email}`;
       
-      console.log(`👤 Creando/actualizando contacto: ${contactData.email}`);
+      // Creando/actualizando contacto
       
       const result = await this.makeRequest('/contacts', 'POST', contactData);
       
       // Limpiar caché del contacto
       cacheService.del(cacheKey);
       
-      console.log('✅ Contacto creado/actualizado exitosamente');
+      // Contacto creado/actualizado
       return { success: true, data: result };
     } catch (error) {
       console.error('❌ Error creando/actualizando contacto:', error);
@@ -153,17 +153,17 @@ export class BrevoService {
       // Intentar obtener del caché primero
       const cachedContact = cacheService.get(cacheKey);
       if (cachedContact) {
-        console.log(`🎯 Contacto ${email} devuelto desde caché`);
+        // Contacto obtenido desde caché
         return { success: true, data: cachedContact };
       }
 
-      console.log(`🔍 Obteniendo contacto: ${email}`);
+      // Obteniendo contacto
       
       const result = await this.makeRequest(`/contacts/${encodeURIComponent(email)}`);
       
       // Guardar en caché por 10 minutos
       cacheService.set(cacheKey, result, 600);
-      console.log(`💾 Contacto ${email} guardado en caché`);
+      // Contacto guardado en caché
       
       return { success: true, data: result };
     } catch (error) {
@@ -182,17 +182,17 @@ export class BrevoService {
       // Intentar obtener del caché primero
       const cachedLists = cacheService.get<BrevoList[]>(cacheKey);
       if (cachedLists) {
-        console.log('🎯 Listas devueltas desde caché');
+        // Listas obtenidas desde caché
         return { success: true, data: cachedLists };
       }
 
-      console.log('📋 Obteniendo listas de contactos');
+      // Obteniendo listas de contactos
       
       const result = await this.makeRequest(`/contacts/lists?limit=${limit}&offset=${offset}`);
       
       // Guardar en caché por 15 minutos
       cacheService.set(cacheKey, result, 900);
-      console.log('💾 Listas guardadas en caché');
+      // Listas guardadas en caché
       
       return { success: true, data: result };
     } catch (error) {
@@ -206,7 +206,7 @@ export class BrevoService {
    */
   async createList(name: string, folderId?: number): Promise<any> {
     try {
-      console.log(`📋 Creando lista: ${name}`);
+      // Creando lista
       
       const listData: any = { name };
       if (folderId) {
@@ -219,7 +219,7 @@ export class BrevoService {
       const cacheKeys = cacheService.keys().filter(key => key.startsWith('brevo:lists:'));
       cacheKeys.forEach(key => cacheService.del(key));
       
-      console.log('✅ Lista creada exitosamente:', result.id);
+      // Lista creada exitosamente
       return { success: true, data: result };
     } catch (error) {
       console.error('❌ Error creando lista:', error);
@@ -232,13 +232,13 @@ export class BrevoService {
    */
   async addContactsToList(listId: number, emails: string[]): Promise<any> {
     try {
-      console.log(`👥 Añadiendo ${emails.length} contactos a la lista ${listId}`);
+      // Añadiendo contactos a la lista
       
       const result = await this.makeRequest(`/contacts/lists/${listId}/contacts/add`, 'POST', {
         emails
       });
       
-      console.log('✅ Contactos añadidos a la lista exitosamente');
+      // Contactos añadidos exitosamente
       return { success: true, data: result };
     } catch (error) {
       console.error('❌ Error añadiendo contactos a la lista:', error);
@@ -256,11 +256,11 @@ export class BrevoService {
       // Intentar obtener del caché primero
       const cachedTemplates = cacheService.get<BrevoTemplate[]>(cacheKey);
       if (cachedTemplates) {
-        console.log('🎯 Plantillas devueltas desde caché');
+        // Plantillas obtenidas desde caché
         return { success: true, data: cachedTemplates };
       }
 
-      console.log('📄 Obteniendo plantillas de email');
+      // Obteniendo plantillas de email
       
       let endpoint = `/smtp/templates?limit=${limit}&offset=${offset}`;
       if (templateStatus !== undefined) {
@@ -271,7 +271,7 @@ export class BrevoService {
       
       // Guardar en caché por 20 minutos
       cacheService.set(cacheKey, result, 1200);
-      console.log('💾 Plantillas guardadas en caché');
+      // Plantillas guardadas en caché
       
       return { success: true, data: result };
     } catch (error) {
@@ -290,7 +290,7 @@ export class BrevoService {
     tags?: string[]
   ): Promise<any> {
     try {
-      console.log(`📧 Enviando email con plantilla ${templateId} a ${to.map(t => t.email).join(', ')}`);
+      // Enviando email con plantilla
       
       const emailData: any = {
         templateId,
@@ -307,7 +307,7 @@ export class BrevoService {
       
       const result = await this.makeRequest('/smtp/email', 'POST', emailData);
       
-      console.log('✅ Email con plantilla enviado exitosamente:', result.messageId);
+      // Email con plantilla enviado
       return { success: true, messageId: result.messageId };
     } catch (error) {
       console.error('❌ Error enviando email con plantilla:', error);
@@ -325,11 +325,11 @@ export class BrevoService {
       // Intentar obtener del caché primero (caché más corto para estadísticas)
       const cachedStats = cacheService.get(cacheKey);
       if (cachedStats) {
-        console.log('🎯 Estadísticas devueltas desde caché');
+        // Estadísticas obtenidas desde caché
         return { success: true, data: cachedStats };
       }
 
-      console.log('📊 Obteniendo estadísticas de email');
+      // Obteniendo estadísticas de email
       
       let endpoint = '/smtp/statistics/events';
       const params = new URLSearchParams();
@@ -346,7 +346,7 @@ export class BrevoService {
       
       // Guardar en caché por 5 minutos (estadísticas cambian frecuentemente)
       cacheService.set(cacheKey, result, 300);
-      console.log('💾 Estadísticas guardadas en caché');
+      // Estadísticas guardadas en caché
       
       return { success: true, data: result };
     } catch (error) {

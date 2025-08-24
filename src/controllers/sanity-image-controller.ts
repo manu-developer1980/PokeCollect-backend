@@ -211,10 +211,10 @@ export const migrateSetImages = async (req: Request, res: Response) => {
       // Iniciar migración en background
       sanityImageService.migrateSetImages(setId, batchSize)
         .then(() => {
-          console.log(`Migration completed for set ${setId}`);
+          // Migration completed for set
         })
         .catch((error) => {
-          console.error(`Migration failed for set ${setId}:`, error);
+          // Migration failed for set
         });
 
       return res.json({
@@ -286,10 +286,10 @@ export const migrateAllImages = async (req: Request, res: Response) => {
       // Iniciar migración completa en background
       sanityImageService.migrateAllImages(batchSize)
         .then(() => {
-          console.log('Full migration completed successfully');
+          // Full migration completed successfully
         })
         .catch((error) => {
-          console.error('Full migration failed:', error);
+          // Full migration failed
         });
 
       return res.json({

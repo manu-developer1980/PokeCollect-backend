@@ -326,7 +326,7 @@ export class StripeController {
         return;
       }
 
-      console.log('🔍 Procesando webhook de Stripe...');
+      // Procesando webhook de Stripe
       const event = await stripeService.processWebhook(payload, signature);
 
       if (!event) {

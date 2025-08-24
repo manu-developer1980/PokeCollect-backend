@@ -61,7 +61,7 @@ export async function sendEmail(emailData: EmailData): Promise<EmailResult> {
     const result = await response.json();
 
     if (response.ok) {
-      console.log('✅ Email enviado exitosamente:', result);
+      // Email enviado exitosamente
       return { success: true, messageId: result.messageId };
     } else {
       console.error('❌ Error al enviar email:', result);
