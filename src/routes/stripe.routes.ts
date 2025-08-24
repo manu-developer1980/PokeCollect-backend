@@ -24,6 +24,9 @@ router.use(rateLimiters.general.middleware());
 router.get('/plans', StripeController.getSubscriptionPlans);
 router.get('/plans/:planId', StripeController.getPlanFeatures);
 
+// Ruta para obtener el plan de un usuario
+router.get('/user/:userId/plan', StripeController.getUserPlan);
+
 // Rutas de suscripción (requieren autenticación en producción)
 router.post('/checkout/session', 
   rateLimiters.general.middleware(), // Rate limiting adicional para operaciones críticas

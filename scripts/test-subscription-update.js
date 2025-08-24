@@ -40,7 +40,6 @@ async function testSubscriptionUpdate() {
     // 2. Crear un usuario de prueba
     console.log('\n2️⃣ Creando usuario de prueba...');
     
-    const testUserId = '550e8400-e29b-41d4-a716-446655440001';
     const testEmail = 'test-subscription@pokecollector.com';
     const testSubscriptionId = 'sub_test_12345';
     
@@ -50,17 +49,35 @@ async function testSubscriptionUpdate() {
       .delete()
       .eq('email', testEmail);
     
-    // Crear nuevo usuario de prueba
+    // Crear nuevo usuario de prueba (solo con columnas básicas)
     const { data: newUser, error: createError } = await supabase
       .from('users')
       .insert({
-        id: testUserId,
-        email: testEmail,
-        plan_type: 'aprendiz',
-        stripe_subscription_id: testSubscriptionId
+        email: testEmail
       })
       .select()
       .single();
+    
+    if (!createError && newUser) {
+      // Actualizar el usuario con los campos adicionales
+      const { data: updatedUser, error: updateError } = await supabase
+        .from('users')
+        .update({
+          plan_type: 'aprendiz',
+          stripe_subscription_id: testSubscriptionId
+        })
+        .eq('id', newUser.id)
+        .select()
+        .single();
+      
+      if (updateError) {
+        console.error('❌ Error actualizando usuario de prueba:', updateError);
+        return;
+      }
+      
+      // Usar el usuario actualizado
+      Object.assign(newUser, updatedUser);
+    }
     
     if (createError) {
       console.error('❌ Error creando usuario de prueba:', createError);
@@ -76,13 +93,14 @@ async function testSubscriptionUpdate() {
     // 3. Probar UserService.getUserPlan
     console.log('\n3️⃣ Probando UserService.getUserPlan...');
     
+    const testUserId = newUser.id;
     const currentPlan = await UserService.getUserPlan(testUserId);
     console.log(`✅ Plan actual obtenido: ${currentPlan}`);
     
     // 4. Probar actualización de plan
     console.log('\n4️⃣ Probando actualización de plan...');
     
-    const newPlanType = 'coleccionista';
+    const newPlanType = 'entrenador';
     const updatedUser = await UserService.updateUserPlan(testUserId, newPlanType);
     console.log(`✅ Plan actualizado a: ${updatedUser.plan_type}`);
     

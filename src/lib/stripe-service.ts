@@ -410,28 +410,28 @@ export class StripeService {
   private getPlanTypeFromPriceId(priceId?: string): string | null {
     if (!priceId) return null;
     
-    // Mapear los price_id a los tipos de plan
+    // Mapear los price_id reales de Stripe a los tipos de plan
     const priceIdToPlan: Record<string, string> = {
-      // Estos price_id deben coincidir con los configurados en Stripe
-      'price_aprendiz': 'aprendiz',
-      'price_coleccionista': 'coleccionista', 
-      'price_maestro': 'maestro'
+      // Price IDs reales de Stripe
+      'price_1R4KH1EoOyqILXNqxnOSjJHZ': 'aprendiz',
+      'price_1R4KGgEoOyqILXNqf6Z2vjqQ': 'entrenador',
+      'price_1R4KHlEoOyqILXNqqX7gkWWJ': 'maestro'
     };
     
-    // Buscar por coincidencia exacta primero
-    if (priceIdToPlan[priceId]) {
-      return priceIdToPlan[priceId];
+    // Buscar por coincidencia exacta
+    const planType = priceIdToPlan[priceId];
+    if (planType) {
+      return planType;
     }
     
-    // Buscar por coincidencia parcial en el nombre del price_id
-    for (const [key, planType] of Object.entries(priceIdToPlan)) {
-      if (priceId.includes(planType)) {
-        return planType;
-      }
+    // Si no se encuentra, verificar si es un status de suscripción
+    if (priceId === 'active' || priceId === 'canceled' || priceId === 'incomplete') {
+      console.log(`⚠️ Se recibió un status de suscripción en lugar de Price ID: ${priceId}`);
+      return 'aprendiz'; // Fallback al plan gratuito
     }
     
     console.log(`⚠️ Price ID no reconocido: ${priceId}`);
-    return null;
+    return 'aprendiz'; // Fallback al plan gratuito en lugar de null
   }
 
   /**

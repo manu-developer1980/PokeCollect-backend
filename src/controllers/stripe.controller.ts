@@ -336,4 +336,38 @@ export class StripeController {
       });
     }
   }
+
+  /**
+   * Obtiene el plan actual de un usuario
+   */
+  static async getUserPlan(req: Request, res: Response): Promise<void> {
+    try {
+      const { userId } = req.params;
+
+      if (!userId) {
+        res.status(400).json({
+          success: false,
+          error: 'ID de usuario requerido'
+        });
+        return;
+      }
+
+      const userPlan = await StripeService.getUserPlan(userId);
+      const planFeatures = StripeService.getPlanFeatures(userPlan);
+
+      res.json({
+        success: true,
+        data: {
+          planType: userPlan,
+          planFeatures
+        }
+      });
+    } catch (error) {
+      console.error('❌ Error obteniendo plan del usuario:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Error obteniendo plan del usuario'
+      });
+    }
+  }
 }
