@@ -65,39 +65,60 @@ export class StripeService {
    * Planes de suscripción disponibles
    */
   static readonly SUBSCRIPTION_PLANS: Record<string, SubscriptionPlan> = {
-    free: {
-      id: 'free',
-      name: 'Gratuito',
-      description: 'Plan básico para comenzar',
+    aprendiz: {
+      id: 'aprendiz',
+      name: 'Aprendiz',
+      description: 'Plan gratuito para comenzar',
       price: 0,
       currency: 'eur',
       interval: 'month',
-      features: ['Búsqueda básica', 'Colección personal'],
-      cardLimit: 100,
-      collectionLimit: 3,
-      wishlistLimit: 50,
+      features: ['Hasta 50 cartas', '2 colecciones', '10 cartas en lista de deseos', 'Búsqueda básica'],
+      cardLimit: 50,
+      collectionLimit: 2,
+      wishlistLimit: 10,
       hasAdvancedSearch: false,
-      stripePriceId: ''
+      stripePriceId: 'price_1R4KH1EoOyqILXNqxnOSjJHZ'
     },
-    premium: {
-      id: 'premium',
-      name: 'Premium',
-      description: 'Plan avanzado con todas las funcionalidades',
-      price: 9.99,
+    entrenador: {
+      id: 'entrenador',
+      name: 'Entrenador',
+      description: 'Para coleccionistas serios',
+      price: 5,
       currency: 'eur',
       interval: 'month',
       features: [
+        'Hasta 500 cartas',
+        '5 colecciones',
+        '50 cartas en lista de deseos',
         'Búsqueda avanzada',
+        'Estadísticas básicas'
+      ],
+      cardLimit: 500,
+      collectionLimit: 5,
+      wishlistLimit: 50,
+      hasAdvancedSearch: true,
+      stripePriceId: 'price_1R4KGgEoOyqILXNqf6Z2vjqQ'
+    },
+    maestro: {
+      id: 'maestro',
+      name: 'Maestro',
+      description: 'Para maestros coleccionistas',
+      price: 15,
+      currency: 'eur',
+      interval: 'month',
+      features: [
+        'Cartas ilimitadas',
         'Colecciones ilimitadas',
-        'Lista de deseos extendida',
-        'Estadísticas detalladas',
+        'Lista de deseos ilimitada',
+        'Búsqueda avanzada',
+        'Estadísticas completas',
         'Soporte prioritario'
       ],
       cardLimit: -1, // Ilimitado
       collectionLimit: -1, // Ilimitado
       wishlistLimit: -1, // Ilimitado
       hasAdvancedSearch: true,
-      stripePriceId: process.env.STRIPE_PREMIUM_PRICE_ID || ''
+      stripePriceId: 'price_1R4KHlEoOyqILXNqqX7gkWWJ'
     }
   };
 
@@ -335,6 +356,17 @@ export class StripeService {
    */
   static getPlanFeatures(planId: string): SubscriptionPlan | null {
     return this.SUBSCRIPTION_PLANS[planId] || null;
+  }
+
+  /**
+   * Obtiene el plan actual del usuario
+   * Por ahora devuelve 'aprendiz' por defecto
+   * TODO: Implementar lógica para obtener el plan real basado en la suscripción
+   */
+  static async getUserPlan(userId: string): Promise<string> {
+    // Por ahora devolvemos el plan gratuito por defecto
+    // En el futuro, aquí se consultaría la base de datos para obtener la suscripción activa
+    return 'aprendiz';
   }
 
   /**

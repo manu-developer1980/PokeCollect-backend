@@ -5,6 +5,7 @@ const router = Router();
 
 // Rutas para colecciones
 router.get("/", collectionsController.getCollections);
+router.post("/", collectionsController.createCollection);
 router.post("/:collectionId/cards", collectionsController.addCardToCollection);
 
 export default router;

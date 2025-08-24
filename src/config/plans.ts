@@ -1,39 +1,49 @@
 export const defaultPlans = [
   {
-    id: "a184d629-5253-4171-8bb3-40ee69f5f3fb", // ID de Polar para el plan gratuito
-    name: "Free",
-    description: "Perfect for getting started",
+    id: "price_1R4KH1EoOyqILXNqxnOSjJHZ", // ID de Stripe para el plan aprendiz
+    name: "aprendiz",
+    description: "Plan gratuito para comenzar",
     price: 0,
     interval: "month",
-    features: ["Up to 100 cards", "Basic collection management", "Card search"],
+    features: ["Hasta 50 cartas", "2 colecciones", "10 cartas en lista de deseos", "Búsqueda básica"],
+    maxCards: 50,
+    maxCollections: 2,
+    maxWishlist: 10,
   },
   {
-    id: "1e0f535c-429d-4c4a-9c9c-bdb39ed74d7b", // ID de Polar para el plan Pro mensual
-    name: "Pro",
-    description: "For serious collectors",
-    price: 9.99,
+    id: "price_1R4KGgEoOyqILXNqf6Z2vjqQ", // ID de Stripe para el plan entrenador
+    name: "entrenador",
+    description: "Para coleccionistas serios",
+    price: 5,
     interval: "month",
     features: [
-      "Unlimited cards",
-      "Advanced statistics",
-      "Price tracking",
-      "Export collections",
-      "Priority support",
+      "Hasta 500 cartas",
+      "5 colecciones",
+      "50 cartas en lista de deseos",
+      "Búsqueda avanzada",
+      "Estadísticas básicas",
     ],
+    maxCards: 500,
+    maxCollections: 5,
+    maxWishlist: 50,
     isPopular: true,
   },
   {
-    id: "de48e85c-5447-451c-b70b-b7f3ccfc9cda", // ID de Polar para el plan Pro anual
-    name: "Pro",
-    description: "For serious collectors",
-    price: 99.99,
-    interval: "year",
+    id: "price_1R4KHlEoOyqILXNqqX7gkWWJ", // ID de Stripe para el plan maestro
+    name: "maestro",
+    description: "Para maestros coleccionistas",
+    price: 15,
+    interval: "month",
     features: [
-      "Unlimited cards",
-      "Advanced statistics",
-      "Price tracking",
-      "Export collections",
-      "Priority support",
+      "Cartas ilimitadas",
+      "Colecciones ilimitadas",
+      "Lista de deseos ilimitada",
+      "Búsqueda avanzada",
+      "Estadísticas completas",
+      "Soporte prioritario",
     ],
+    maxCards: -1,
+    maxCollections: -1,
+    maxWishlist: -1,
   },
 ];
