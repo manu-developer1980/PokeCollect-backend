@@ -27,7 +27,7 @@ export class StripeController {
   }
 
   /**
-   * Crea una sesión de checkout de Stripe
+   * Crea una sesión de checkout de Stripe o actualiza suscripción existente
    */
   static async createCheckoutSession(req: Request, res: Response): Promise<void> {
     try {
@@ -52,6 +52,30 @@ export class StripeController {
         return;
       }
 
+      // Verificar si el usuario ya tiene una suscripción activa
+      const activeSubscription = await stripeService.getUserActiveSubscription(userId);
+      
+      if (activeSubscription) {
+        // Si ya tiene una suscripción activa, actualizarla en lugar de crear una nueva
+        try {
+          const updatedSubscription = await stripeService.updateSubscription(activeSubscription.id, priceId);
+          
+          res.json({
+            success: true,
+            data: {
+              subscriptionUpdated: true,
+              subscription: updatedSubscription,
+              message: 'Suscripción actualizada exitosamente'
+            }
+          });
+          return;
+        } catch (updateError) {
+          console.error('❌ Error actualizando suscripción existente:', updateError);
+          // Si falla la actualización, continuar con el flujo normal de checkout
+        }
+      }
+
+      // Si no tiene suscripción activa o falló la actualización, crear nueva sesión de checkout
       const session = await stripeService.createCheckoutSession({
         priceId,
         userId,
@@ -177,6 +201,76 @@ export class StripeController {
   }
 
   /**
+   * Actualiza una suscripción existente a un nuevo plan
+   */
+  static async updateSubscription(req: Request, res: Response): Promise<void> {
+    try {
+      const { subscriptionId } = req.params;
+      const { priceId } = req.body;
+
+      if (!subscriptionId) {
+        res.status(400).json({
+          success: false,
+          error: 'ID de suscripción requerido'
+        });
+        return;
+      }
+
+      if (!priceId) {
+        res.status(400).json({
+          success: false,
+          error: 'Price ID requerido'
+        });
+        return;
+      }
+
+      const subscription = await stripeService.updateSubscription(subscriptionId, priceId);
+
+      res.json({
+        success: true,
+        data: subscription,
+        message: 'Suscripción actualizada exitosamente'
+      });
+    } catch (error) {
+      console.error('❌ Error actualizando suscripción:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Error actualizando suscripción'
+      });
+    }
+  }
+
+  /**
+   * Cancela todas las suscripciones activas de un usuario
+   */
+  static async cancelAllUserSubscriptions(req: Request, res: Response): Promise<void> {
+    try {
+      const { userId } = req.params;
+
+      if (!userId) {
+        res.status(400).json({
+          success: false,
+          error: 'ID de usuario requerido'
+        });
+        return;
+      }
+
+      await stripeService.cancelAllUserSubscriptions(userId);
+
+      res.json({
+        success: true,
+        message: 'Todas las suscripciones del usuario han sido canceladas'
+      });
+    } catch (error) {
+      console.error('❌ Error cancelando suscripciones del usuario:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Error cancelando suscripciones del usuario'
+      });
+    }
+  }
+
+  /**
    * Obtiene el historial de facturas de un cliente
    */
   static async getCustomerInvoices(req: Request, res: Response): Promise<void> {
@@ -221,7 +315,8 @@ export class StripeController {
   static async handleWebhook(req: Request, res: Response): Promise<void> {
     try {
       const signature = req.headers['stripe-signature'] as string;
-      const payload = req.body;
+      // Para webhooks de Stripe, el body debe ser un string raw
+      const payload = req.body.toString();
 
       if (!signature) {
         res.status(400).json({
@@ -231,6 +326,7 @@ export class StripeController {
         return;
       }
 
+      console.log('🔍 Procesando webhook de Stripe...');
       const event = await stripeService.processWebhook(payload, signature);
 
       if (!event) {

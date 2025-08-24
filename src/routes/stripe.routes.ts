@@ -36,6 +36,10 @@ router.post('/checkout/session',
 router.get('/subscription/:subscriptionId', StripeController.getSubscription);
 router.put('/subscription/:subscriptionId/cancel', StripeController.cancelSubscription);
 router.put('/subscription/:subscriptionId/reactivate', StripeController.reactivateSubscription);
+router.put('/subscription/:subscriptionId/update', StripeController.updateSubscription);
+
+// Cancelar todas las suscripciones de un usuario
+router.delete('/user/:userId/subscriptions', StripeController.cancelAllUserSubscriptions);
 
 // Rutas de facturación
 router.get('/customer/:customerId/invoices', StripeController.getCustomerInvoices);

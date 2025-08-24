@@ -53,6 +53,10 @@ app.use(
   })
 );
 
+// Configurar middleware para webhooks de Stripe (necesita body raw)
+app.use('/api/stripe/webhook', express.raw({ type: 'application/json' }));
+
+// Configurar JSON parser para el resto de rutas
 app.use(express.json());
 app.use('/images', express.static('public/images'));
 

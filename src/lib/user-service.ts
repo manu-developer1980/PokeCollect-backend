@@ -70,6 +70,32 @@ export class UserService {
   }
 
   /**
+   * Obtiene un usuario por su customer ID de Stripe
+   */
+  static async getUserByStripeCustomerId(customerId: string): Promise<User | null> {
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('stripe_customer_id', customerId)
+        .single();
+
+      if (error) {
+        if (error.code === 'PGRST116') {
+          // Usuario no encontrado
+          return null;
+        }
+        throw error;
+      }
+
+      return data;
+    } catch (error) {
+      console.error('❌ Error obteniendo usuario por customer ID:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Crea o actualiza un usuario
    */
   static async upsertUser(userData: Partial<User>): Promise<User> {
