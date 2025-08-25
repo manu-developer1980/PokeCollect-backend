@@ -79,10 +79,50 @@ export class StripeService {
       hasAdvancedSearch: false,
       stripePriceId: ''
     },
+    entrenador: {
+      id: 'entrenador',
+      name: 'Entrenador',
+      description: 'Plan intermedio para coleccionistas activos',
+      price: 4.99,
+      currency: 'eur',
+      interval: 'month',
+      features: [
+        'Búsqueda avanzada básica',
+        'Colecciones extendidas',
+        'Lista de deseos ampliada',
+        'Estadísticas básicas'
+      ],
+      cardLimit: 500,
+      collectionLimit: 10,
+      wishlistLimit: 200,
+      hasAdvancedSearch: true,
+      stripePriceId: process.env.STRIPE_ENTRENADOR_PRICE_ID || ''
+    },
+    maestro: {
+      id: 'maestro',
+      name: 'Maestro',
+      description: 'Plan premium para maestros coleccionistas',
+      price: 9.99,
+      currency: 'eur',
+      interval: 'month',
+      features: [
+        'Búsqueda avanzada completa',
+        'Colecciones ilimitadas',
+        'Lista de deseos ilimitada',
+        'Estadísticas detalladas',
+        'Soporte prioritario',
+        'Análisis de mercado'
+      ],
+      cardLimit: -1, // Ilimitado
+      collectionLimit: -1, // Ilimitado
+      wishlistLimit: -1, // Ilimitado
+      hasAdvancedSearch: true,
+      stripePriceId: process.env.STRIPE_MAESTRO_PRICE_ID || ''
+    },
     premium: {
       id: 'premium',
       name: 'Premium',
-      description: 'Plan avanzado con todas las funcionalidades',
+      description: 'Plan avanzado con todas las funcionalidades (legacy)',
       price: 9.99,
       currency: 'eur',
       interval: 'month',
@@ -241,6 +281,102 @@ export class StripeService {
   }
 
   /**
+   * Obtiene todas las suscripciones activas de un cliente
+   */
+  async getCustomerActiveSubscriptions(customerId: string): Promise<Stripe.Subscription[]> {
+    try {
+      const cacheKey = `stripe:active_subscriptions:${customerId}`;
+      
+      // Intentar obtener del caché primero
+      const cachedSubscriptions = cacheService.get<Stripe.Subscription[]>(cacheKey);
+      if (cachedSubscriptions) {
+        console.log(`🎯 Suscripciones activas del cliente ${customerId} devueltas desde caché`);
+        return cachedSubscriptions;
+      }
+
+      const stripeInstance = ensureStripeConfigured();
+      const subscriptions = await stripeInstance.subscriptions.list({
+        customer: customerId,
+        status: 'active',
+        limit: 100, // Obtener todas las suscripciones activas
+      });
+
+      // Guardar en caché por 5 minutos
+      cacheService.set(cacheKey, subscriptions.data, 300);
+      console.log(`💾 ${subscriptions.data.length} suscripciones activas del cliente ${customerId} guardadas en caché`);
+      
+      return subscriptions.data;
+    } catch (error) {
+      console.error(`❌ Error obteniendo suscripciones activas del cliente ${customerId}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Cancela todas las suscripciones activas de un cliente excepto la especificada
+   */
+  async cancelOtherActiveSubscriptions(customerId: string, keepSubscriptionId?: string): Promise<void> {
+    try {
+      const activeSubscriptions = await this.getCustomerActiveSubscriptions(customerId);
+      
+      // Filtrar suscripciones a cancelar (todas excepto la que queremos mantener)
+      const subscriptionsToCancel = activeSubscriptions.filter(sub => 
+        sub.id !== keepSubscriptionId && sub.status === 'active'
+      );
+
+      if (subscriptionsToCancel.length === 0) {
+        console.log(`ℹ️ No hay suscripciones adicionales que cancelar para el cliente ${customerId}`);
+        return;
+      }
+
+      console.log(`🔄 Cancelando ${subscriptionsToCancel.length} suscripciones activas para el cliente ${customerId}`);
+      
+      // Cancelar cada suscripción inmediatamente (no al final del período)
+      const stripeInstance = ensureStripeConfigured();
+      const cancelPromises = subscriptionsToCancel.map(async (subscription) => {
+        try {
+          await stripeInstance.subscriptions.cancel(subscription.id);
+          console.log(`✅ Suscripción ${subscription.id} cancelada exitosamente`);
+        } catch (error) {
+          console.error(`❌ Error cancelando suscripción ${subscription.id}:`, error);
+          throw error;
+        }
+      });
+
+      await Promise.all(cancelPromises);
+      
+      // Limpiar caché de suscripciones activas
+      const cacheKey = `stripe:active_subscriptions:${customerId}`;
+      cacheService.del(cacheKey);
+      
+      console.log(`✅ Todas las suscripciones anteriores del cliente ${customerId} han sido canceladas`);
+    } catch (error) {
+      console.error(`❌ Error cancelando suscripciones del cliente ${customerId}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Crea una nueva suscripción y cancela automáticamente las anteriores
+   */
+  async createCheckoutSessionWithSubscriptionManagement(params: CreateCheckoutSessionParams): Promise<Stripe.Checkout.Session> {
+    try {
+      // Primero crear la sesión de checkout normal
+      const session = await this.createCheckoutSession(params);
+      
+      // Almacenar información para manejar la cancelación después del pago exitoso
+      // Esto se manejará en el webhook de subscription.created
+      console.log(`✅ Sesión de checkout creada: ${session.id}`);
+      console.log(`ℹ️ Las suscripciones anteriores se cancelarán automáticamente después del pago exitoso`);
+      
+      return session;
+    } catch (error) {
+      console.error(`❌ Error creando sesión de checkout con manejo de suscripciones:`, error);
+      throw error;
+    }
+  }
+
+  /**
    * Verifica y procesa un webhook de Stripe
    */
   async processWebhook(payload: string, signature: string): Promise<WebhookEvent | null> {
@@ -288,6 +424,27 @@ export class StripeService {
    */
   private async handleSubscriptionCreated(subscription: Stripe.Subscription): Promise<void> {
     console.log(`🎉 Nueva suscripción creada: ${subscription.id}`);
+    
+    try {
+      // Obtener el customer ID de la suscripción
+      const customerId = typeof subscription.customer === 'string' 
+        ? subscription.customer 
+        : subscription.customer?.id;
+      
+      if (customerId) {
+        // Cancelar automáticamente todas las otras suscripciones activas del cliente
+        console.log(`🔄 Verificando suscripciones anteriores para el cliente ${customerId}`);
+        await this.cancelOtherActiveSubscriptions(customerId, subscription.id);
+        
+        console.log(`✅ Procesamiento completo de nueva suscripción ${subscription.id}`);
+      } else {
+        console.warn(`⚠️ No se pudo obtener el customer ID de la suscripción ${subscription.id}`);
+      }
+    } catch (error) {
+      console.error(`❌ Error procesando nueva suscripción ${subscription.id}:`, error);
+      // No lanzar el error para evitar que falle el webhook
+    }
+    
     // Aquí se podría actualizar la base de datos del usuario
     // Por ejemplo, actualizar el plan en Supabase
   }

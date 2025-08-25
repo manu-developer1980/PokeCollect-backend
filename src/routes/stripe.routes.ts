@@ -30,9 +30,18 @@ router.post('/checkout/session',
   StripeController.createCheckoutSession
 );
 
+// Nueva ruta para checkout con manejo automático de suscripciones
+router.post('/checkout/managed-session', 
+  rateLimiters.general.middleware(),
+  StripeController.createManagedCheckoutSession
+);
+
 router.get('/subscription/:subscriptionId', StripeController.getSubscription);
 router.put('/subscription/:subscriptionId/cancel', StripeController.cancelSubscription);
 router.put('/subscription/:subscriptionId/reactivate', StripeController.reactivateSubscription);
+
+// Nueva ruta para obtener suscripciones activas de un cliente
+router.get('/customer/:customerId/active-subscriptions', StripeController.getActiveSubscriptions);
 
 // Rutas de facturación
 router.get('/customer/:customerId/invoices', StripeController.getCustomerInvoices);

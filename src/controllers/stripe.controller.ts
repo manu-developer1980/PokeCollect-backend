@@ -77,6 +77,57 @@ export class StripeController {
   }
 
   /**
+   * Crea una sesión de checkout con manejo automático de suscripciones
+   */
+  static async createManagedCheckoutSession(req: Request, res: Response): Promise<void> {
+    try {
+      const { priceId, userId, userEmail, successUrl, cancelUrl } = req.body;
+
+      // Validar campos requeridos
+      if (!priceId || !userId || !userEmail || !successUrl || !cancelUrl) {
+        res.status(400).json({
+          success: false,
+          error: 'Faltan campos requeridos: priceId, userId, userEmail, successUrl, cancelUrl'
+        });
+        return;
+      }
+
+      // Validar formato de email
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(userEmail)) {
+        res.status(400).json({
+          success: false,
+          error: 'Formato de email inválido'
+        });
+        return;
+      }
+
+      const session = await stripeService.createCheckoutSessionWithSubscriptionManagement({
+        priceId,
+        userId,
+        userEmail,
+        successUrl,
+        cancelUrl
+      });
+
+      res.json({
+        success: true,
+        data: {
+          sessionId: session.id,
+          url: session.url
+        },
+        message: 'Sesión creada. Las suscripciones anteriores se cancelarán automáticamente tras el pago exitoso.'
+      });
+    } catch (error) {
+      console.error('❌ Error creando sesión de checkout administrada:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Error creando sesión de pago administrada'
+      });
+    }
+  }
+
+  /**
    * Obtiene información de una suscripción
    */
   static async getSubscription(req: Request, res: Response): Promise<void> {
@@ -110,6 +161,36 @@ export class StripeController {
       res.status(500).json({
         success: false,
         error: 'Error obteniendo información de suscripción'
+      });
+    }
+  }
+
+  /**
+   * Obtiene las suscripciones activas de un cliente
+   */
+  static async getActiveSubscriptions(req: Request, res: Response): Promise<void> {
+    try {
+      const { customerId } = req.params;
+
+      if (!customerId) {
+        res.status(400).json({
+          success: false,
+          error: 'ID de cliente requerido'
+        });
+        return;
+      }
+
+      const subscriptions = await stripeService.getCustomerActiveSubscriptions(customerId);
+
+      res.json({
+        success: true,
+        data: subscriptions
+      });
+    } catch (error) {
+      console.error('❌ Error obteniendo suscripciones activas:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Error obteniendo suscripciones activas'
       });
     }
   }
