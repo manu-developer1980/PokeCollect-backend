@@ -43,6 +43,9 @@ router.put('/subscription/:subscriptionId/reactivate', StripeController.reactiva
 // Nueva ruta para obtener suscripciones activas de un cliente
 router.get('/customer/:customerId/active-subscriptions', StripeController.getActiveSubscriptions);
 
+// Ruta para obtener el plan actual de un usuario
+router.get('/user/:userId/plan', StripeController.getUserPlan);
+
 // Rutas de facturación
 router.get('/customer/:customerId/invoices', StripeController.getCustomerInvoices);
 

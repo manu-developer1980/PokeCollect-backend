@@ -488,10 +488,86 @@ export class StripeService {
   }
 
   /**
+   * Obtiene el plan actual de un usuario basado en sus suscripciones activas
+   */
+  async getUserCurrentPlan(userId: string): Promise<SubscriptionPlan> {
+    try {
+      const stripe = ensureStripeConfigured();
+      
+      // Buscar cliente por metadata userId
+      const customers = await stripe.customers.list({
+        limit: 1,
+        expand: ['data.subscriptions']
+      });
+      
+      let customer = null;
+      for (const cust of customers.data) {
+        if (cust.metadata?.userId === userId) {
+          customer = cust;
+          break;
+        }
+      }
+      
+      if (!customer) {
+        console.log(`👤 Usuario ${userId} no tiene cliente en Stripe, devolviendo plan gratuito`);
+        return StripeService.SUBSCRIPTION_PLANS.free;
+      }
+      
+      // Obtener suscripciones activas del cliente
+      const activeSubscriptions = await this.getCustomerActiveSubscriptions(customer.id);
+      
+      if (activeSubscriptions.length === 0) {
+        console.log(`📋 Usuario ${userId} no tiene suscripciones activas, devolviendo plan gratuito`);
+        return StripeService.SUBSCRIPTION_PLANS.free;
+      }
+      
+      // Obtener la suscripción más reciente (por si hay múltiples)
+      const latestSubscription = activeSubscriptions.sort((a, b) => b.created - a.created)[0];
+      
+      // Obtener el price ID de la suscripción
+      const priceId = latestSubscription.items.data[0]?.price?.id;
+      
+      if (!priceId) {
+        console.log(`⚠️ No se pudo obtener price ID para usuario ${userId}, devolviendo plan gratuito`);
+        return StripeService.SUBSCRIPTION_PLANS.free;
+      }
+      
+      // Mapear price ID a plan
+      const planId = this.getPlanIdFromPriceId(priceId);
+      const plan = StripeService.SUBSCRIPTION_PLANS[planId as keyof typeof StripeService.SUBSCRIPTION_PLANS];
+      
+      if (!plan) {
+        console.log(`⚠️ Plan no encontrado para price ID ${priceId}, devolviendo plan gratuito`);
+        return StripeService.SUBSCRIPTION_PLANS.free;
+      }
+      
+      console.log(`✅ Usuario ${userId} tiene plan activo: ${plan.name}`);
+      return plan;
+      
+    } catch (error) {
+      console.error(`❌ Error obteniendo plan del usuario ${userId}:`, error);
+      // En caso de error, devolver plan gratuito por seguridad
+      return StripeService.SUBSCRIPTION_PLANS.free;
+    }
+  }
+  
+  /**
+   * Mapea un price ID de Stripe a un plan ID interno
+   */
+  private getPlanIdFromPriceId(priceId: string): string {
+    for (const [planId, plan] of Object.entries(StripeService.SUBSCRIPTION_PLANS)) {
+      if (plan.stripePriceId === priceId) {
+        return planId;
+      }
+    }
+    return 'free'; // Default fallback
+  }
+
+  /**
    * Obtiene las características de un plan
    */
   static getPlanFeatures(planId: string): SubscriptionPlan | null {
-    return this.SUBSCRIPTION_PLANS[planId] || null;
+    return StripeService.SUBSCRIPTION_PLANS[planId] || null;
   }
 
   /**
