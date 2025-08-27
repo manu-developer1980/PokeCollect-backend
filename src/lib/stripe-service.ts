@@ -166,27 +166,47 @@ export class StripeService {
         return existingCustomer.id;
       }
       
-      // Si no se encuentra por userId, buscar por email
+      // Si no se encuentra por userId, buscar TODOS los customers por email
       const customersByEmail = await stripeInstance.customers.list({
         email: userEmail,
-        limit: 1
+        limit: 100 // Obtener todos los customers con este email
       });
       
       if (customersByEmail.data.length > 0) {
-        const customer = customersByEmail.data[0];
-        // Actualizar metadata con userId si no lo tiene
-        if (!customer.metadata?.userId) {
-          await stripeInstance.customers.update(customer.id, {
-            metadata: {
-              ...customer.metadata,
-              userId: userId
-            }
-          });
-          console.log(`✅ Cliente existente encontrado por email y actualizado con userId: ${customer.id}`);
-        } else {
-          console.log(`✅ Cliente existente encontrado por email: ${customer.id}`);
+        // Buscar si alguno ya tiene el userId correcto
+        const customerWithUserId = customersByEmail.data.find(c => c.metadata?.userId === userId);
+        
+        if (customerWithUserId) {
+          console.log(`✅ Cliente existente encontrado por email con userId correcto: ${customerWithUserId.id}`);
+          return customerWithUserId.id;
         }
-        return customer.id;
+        
+        // Si hay múltiples customers, usar el más antiguo y actualizar su metadata
+        const oldestCustomer = customersByEmail.data.reduce((oldest, current) => 
+          current.created < oldest.created ? current : oldest
+        );
+        
+        // Actualizar metadata con userId
+        await stripeInstance.customers.update(oldestCustomer.id, {
+          metadata: {
+            ...oldestCustomer.metadata,
+            userId: userId
+          }
+        });
+        
+        console.log(`✅ Cliente más antiguo encontrado por email y actualizado con userId: ${oldestCustomer.id}`);
+        
+        // Si hay customers duplicados, marcarlos para limpieza posterior
+        if (customersByEmail.data.length > 1) {
+          console.log(`⚠️ Se encontraron ${customersByEmail.data.length} customers duplicados para ${userEmail}`);
+          const duplicates = customersByEmail.data.filter(c => c.id !== oldestCustomer.id);
+          
+          for (const duplicate of duplicates) {
+            console.log(`   - Duplicado: ${duplicate.id} (creado: ${new Date(duplicate.created * 1000).toLocaleString()})`);
+          }
+        }
+        
+        return oldestCustomer.id;
       }
       
       // Si no existe, crear nuevo cliente
