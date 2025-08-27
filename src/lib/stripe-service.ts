@@ -142,11 +142,80 @@ export class StripeService {
   };
 
   /**
+   * Busca o crea un cliente en Stripe
+   */
+  private async findOrCreateCustomer(userId: string, userEmail: string): Promise<string> {
+    try {
+      const stripeInstance = ensureStripeConfigured();
+      
+      // Primero buscar por userId en metadata
+      const customersByMetadata = await stripeInstance.customers.list({
+        limit: 100,
+      });
+      
+      let existingCustomer = null;
+      for (const customer of customersByMetadata.data) {
+        if (customer.metadata?.userId === userId) {
+          existingCustomer = customer;
+          break;
+        }
+      }
+      
+      if (existingCustomer) {
+        console.log(`✅ Cliente existente encontrado por userId: ${existingCustomer.id}`);
+        return existingCustomer.id;
+      }
+      
+      // Si no se encuentra por userId, buscar por email
+      const customersByEmail = await stripeInstance.customers.list({
+        email: userEmail,
+        limit: 1
+      });
+      
+      if (customersByEmail.data.length > 0) {
+        const customer = customersByEmail.data[0];
+        // Actualizar metadata con userId si no lo tiene
+        if (!customer.metadata?.userId) {
+          await stripeInstance.customers.update(customer.id, {
+            metadata: {
+              ...customer.metadata,
+              userId: userId
+            }
+          });
+          console.log(`✅ Cliente existente encontrado por email y actualizado con userId: ${customer.id}`);
+        } else {
+          console.log(`✅ Cliente existente encontrado por email: ${customer.id}`);
+        }
+        return customer.id;
+      }
+      
+      // Si no existe, crear nuevo cliente
+      const newCustomer = await stripeInstance.customers.create({
+        email: userEmail,
+        metadata: {
+          userId: userId
+        }
+      });
+      
+      console.log(`✅ Nuevo cliente creado: ${newCustomer.id}`);
+      return newCustomer.id;
+      
+    } catch (error) {
+      console.error('❌ Error buscando o creando cliente:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Crea una sesión de checkout de Stripe
    */
   async createCheckoutSession(params: CreateCheckoutSessionParams): Promise<Stripe.Checkout.Session> {
     try {
       const stripeInstance = ensureStripeConfigured();
+      
+      // Buscar o crear cliente para evitar duplicados
+      const customerId = await this.findOrCreateCustomer(params.userId, params.userEmail);
+      
       const session = await stripeInstance.checkout.sessions.create({
         payment_method_types: ['card'],
         line_items: [
@@ -158,7 +227,7 @@ export class StripeService {
         mode: 'subscription',
         success_url: params.successUrl,
         cancel_url: params.cancelUrl,
-        customer_email: params.userEmail,
+        customer: customerId, // Usar customer ID en lugar de customer_email
         metadata: {
           userId: params.userId,
         },
@@ -169,7 +238,7 @@ export class StripeService {
         },
       });
 
-      console.log(`✅ Sesión de checkout creada para usuario ${params.userId}:`, session.id);
+      console.log(`✅ Sesión de checkout creada para usuario ${params.userId} con cliente ${customerId}:`, session.id);
       return session;
     } catch (error) {
       console.error('❌ Error creando sesión de checkout:', error);
@@ -454,6 +523,26 @@ export class StripeService {
    */
   private async handleSubscriptionUpdated(subscription: Stripe.Subscription): Promise<void> {
     console.log(`🔄 Suscripción actualizada: ${subscription.id}`);
+    
+    try {
+      // Obtener el customer ID de la suscripción
+      const customerId = typeof subscription.customer === 'string' 
+        ? subscription.customer 
+        : subscription.customer?.id;
+      
+      if (customerId) {
+        // Cancelar automáticamente todas las otras suscripciones activas del cliente
+        console.log(`🔄 Verificando suscripciones anteriores para el cliente ${customerId} (actualización)`);
+        await this.cancelOtherActiveSubscriptions(customerId, subscription.id);
+        
+        console.log(`✅ Procesamiento completo de actualización de suscripción ${subscription.id}`);
+      } else {
+        console.warn(`⚠️ No se pudo obtener el customer ID de la suscripción actualizada ${subscription.id}`);
+      }
+    } catch (error) {
+      console.error(`❌ Error procesando actualización de suscripción ${subscription.id}:`, error);
+      // No lanzar el error para evitar que falle el webhook
+    }
     
     // Limpiar caché de la suscripción
     const cacheKey = `stripe:subscription:${subscription.id}`;
