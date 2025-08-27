@@ -119,7 +119,7 @@ async function fixDuplicateSubscriptions() {
   } catch (error) {
     console.error('\n❌ ERROR durante la limpieza:', error);
     
-    if (error.message?.includes('Invalid API Key')) {
+    if (error instanceof Error && error.message?.includes('Invalid API Key')) {
       console.log('\n💡 SOLUCIÓN: Verifica que STRIPE_SECRET_KEY sea correcta');
       console.log('📖 Consulta STRIPE_SETUP.md para instrucciones detalladas');
     }
