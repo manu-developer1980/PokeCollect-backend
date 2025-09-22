@@ -1,8 +1,9 @@
-import { stripeService } from '../lib/stripe-service';
 import dotenv from 'dotenv';
 
-// Cargar variables de entorno
+// Cargar variables de entorno ANTES de importar otros módulos
 dotenv.config();
+
+import { stripeService } from '../lib/stripe-service';
 
 /**
  * Script de diagnóstico para verificar y corregir suscripciones duplicadas

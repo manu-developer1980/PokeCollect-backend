@@ -27,20 +27,20 @@ app.use(
     origin: function (origin, callback) {
       // Permitir requests sin origin (como Postman) en desarrollo
       if (!origin) return callback(null, true);
-      
+
       const allowedOrigins = [
         "http://localhost:5173", // URL de desarrollo Vite
         "http://localhost:5174", // URL de desarrollo Vite alternativa
-        "http://localhost:3000", // URL alternativa de desarrollo
+        "https://pokecoll", // URL alternativa de desarrollo
         "https://poke-collector.netlify.app", // URL de producción
         "https://pokecollector.netlify.app", // URL alternativa de producción
       ];
-      
+
       if (allowedOrigins.indexOf(origin) !== -1) {
         callback(null, true);
       } else {
         console.log(`CORS: Origin ${origin} not allowed`);
-        callback(new Error('Not allowed by CORS'));
+        callback(new Error("Not allowed by CORS"));
       }
     },
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
@@ -53,7 +53,7 @@ app.use(
     ],
     credentials: true,
     maxAge: 86400, // Cache preflight requests for 24 hours
-    optionsSuccessStatus: 200 // Para navegadores legacy
+    optionsSuccessStatus: 200, // Para navegadores legacy
   })
 );
 
