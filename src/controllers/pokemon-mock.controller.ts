@@ -353,16 +353,25 @@ export const getRaritiesMock = async (req: Request, res: Response) => {
 export const checkAPIHealth = async (): Promise<boolean> => {
   try {
     const axios = require('axios');
+    const API_KEY = process.env.POKEMON_TCG_API_KEY || "";
+    
+    // Configurar headers con API key si está disponible
+    const headers: any = {
+      'User-Agent': 'PokeCollector/1.0'
+    };
+    
+    if (API_KEY) {
+      headers['X-Api-Key'] = API_KEY;
+    }
+    
     const response = await axios.get('https://api.pokemontcg.io/v2/cards?page=1&pageSize=1', {
-      timeout: 3000, // Reducido el timeout
-      headers: {
-        'User-Agent': 'PokeCollector/1.0'
-      }
+      timeout: 5000, // Aumentado el timeout
+      headers
     });
     
     // Verificar que la respuesta tenga datos válidos
     if (response.status === 200 && response.data && response.data.data) {
-      console.log('✅ API externa disponible');
+      console.log('✅ API externa disponible con', response.data.data.length, 'cartas de prueba');
       return true;
     } else {
       console.log('🔴 API externa responde pero sin datos válidos');
@@ -370,7 +379,8 @@ export const checkAPIHealth = async (): Promise<boolean> => {
     }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
-    console.log('🔴 API externa no disponible:', errorMessage);
+    const statusCode = (error as any)?.response?.status;
+    console.log('🔴 API externa no disponible:', errorMessage, statusCode ? `(${statusCode})` : '');
     return false;
   }
 };

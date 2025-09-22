@@ -1,16 +1,25 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
+import path from "path";
 import pokemonRoutes from "./routes/pokemon.routes";
 import collectionsRoutes from "./routes/collections.routes";
 import contactRoutes from "./routes/contact.routes";
 import stripeRoutes from "./routes/stripe.routes";
 import brevoRoutes from "./routes/brevo.routes";
 
-dotenv.config();
+// Configurar dotenv para cargar desde la raíz del proyecto
+dotenv.config({ path: path.resolve(__dirname, '../.env') });
+
+// Log para verificar que las variables de entorno se cargan correctamente
+console.log('🔧 Variables de entorno cargadas:', {
+  hasApiKey: !!process.env.POKEMON_TCG_API_KEY,
+  apiKeyLength: process.env.POKEMON_TCG_API_KEY?.length || 0,
+  port: process.env.PORT || 'default'
+});
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 5174;
 
 // Configuración de CORS mejorada
 app.use(
