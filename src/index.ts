@@ -5,7 +5,6 @@ import path from "path";
 import pokemonRoutes from "./routes/pokemon.routes";
 import collectionsRoutes from "./routes/collections.routes";
 import contactRoutes from "./routes/contact.routes";
-import stripeRoutes from "./routes/stripe.routes";
 import brevoRoutes from "./routes/brevo.routes";
 
 // Configurar dotenv para cargar desde la raíz del proyecto
@@ -60,10 +59,12 @@ app.use(
 app.use(express.json());
 
 // Rutas
+// Todo lo relacionado con Stripe/suscripciones vive en las edge functions
+// de Supabase (repo PokeCollector, carpeta supabase/functions). Este backend
+// solo hace de proxy de la Pokemon TCG API y de servicio de email.
 app.use("/api/pokemon", pokemonRoutes);
 app.use("/api/collections", collectionsRoutes);
 app.use("/api/contact", contactRoutes);
-app.use("/api/stripe", stripeRoutes);
 app.use("/api/brevo", brevoRoutes);
 
 app.get("/api/health", (req, res) => {
