@@ -89,9 +89,15 @@ export const searchCards = async (req: Request, res: Response) => {
     
     // Añadir el parámetro de búsqueda principal (solo si hay texto de búsqueda)
     if (q && q.toString().trim()) {
-      // Usar búsqueda más flexible: buscar en nombre o permitir comodines
       const searchTerm = q.toString().trim();
-      queryParts.push(`name:*${searchTerm}*`);
+      if (searchTerm.includes(":")) {
+        // Ya es una query Lucene construida por el frontend (name:"..." etc.);
+        // envolverla otra vez la rompería (name:*name:"..."* devuelve 0).
+        queryParts.push(searchTerm);
+      } else {
+        // Texto plano: búsqueda flexible por nombre con comodines
+        queryParts.push(`name:*${searchTerm}*`);
+      }
     }
 
     // Añadir filtro por set si está presente
