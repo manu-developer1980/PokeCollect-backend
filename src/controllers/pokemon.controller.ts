@@ -6,9 +6,8 @@ import {
   searchCardsMock, 
   getCardByIdMock, 
   getSetsMock, 
-  getTypesMock, 
-  getRaritiesMock,
-  checkAPIHealth 
+  getTypesMock,
+  getRaritiesMock
 } from "./pokemon-mock.controller";
 
 const POKEMON_TCG_API_BASE = "https://api.pokemontcg.io/v2";
@@ -31,7 +30,9 @@ async function fetchWithRetry(url: string, retries = 3, delay = 1000) {
     
     for (let i = 0; i < retries; i++) {
       try {
-        const response = await axios.get(url, { headers: apiHeaders });
+        // La API de pokemontcg.io puede tardar varios segundos bajo carga;
+        // sin timeout una petición colgada bloquea la respuesta al frontend.
+        const response = await axios.get(url, { headers: apiHeaders, timeout: 20000 });
         console.log('✅ Respuesta exitosa de API externa:', {
           status: response.status,
           dataCount: response.data?.data?.length || 0,
@@ -56,13 +57,9 @@ async function fetchWithRetry(url: string, retries = 3, delay = 1000) {
 export const searchCards = async (req: Request, res: Response) => {
   const { q, page, pageSize, orderBy, set, rarity } = req.query;
 
-  // Verificar si la API externa está disponible
-  const isAPIHealthy = await checkAPIHealth();
-  if (!isAPIHealthy) {
-    console.log('🔄 API externa no disponible, usando datos mock');
-    return searchCardsMock(req, res);
-  }
-
+  // Sin pre-check de salud: el ping previo (5s de timeout) fallaba a menudo
+  // con la API real disponible y servía mocks que ignoran los filtros. Se
+  // intenta la API real directamente y el mock queda como fallback del catch.
   try {
     // Generar clave de caché basada en los parámetros de búsqueda
     const cacheKey = cacheService.generateKey('pokemon:cards', {
@@ -138,28 +135,14 @@ export const searchCards = async (req: Request, res: Response) => {
 
     res.json(response);
   } catch (error) {
-    console.error("API request failed:", error);
-    res.status(500).json({
-      data: [],
-      page: 1,
-      pageSize: 20,
-      count: 0,
-      totalCount: 0,
-      error: "Failed to fetch cards",
-    });
+    console.error("API request failed, usando datos mock:", error);
+    return searchCardsMock(req, res);
   }
 };
 
 // Controlador para obtener una carta por ID
 export const getCardById = async (req: Request, res: Response) => {
   const { id } = req.params;
-
-  // Verificar si la API externa está disponible
-  const isAPIHealthy = await checkAPIHealth();
-  if (!isAPIHealthy) {
-    console.log('🔄 API externa no disponible, usando datos mock para carta por ID');
-    return getCardByIdMock(req, res);
-  }
 
   try {
     const cacheKey = `pokemon:card:${id}`;
@@ -179,29 +162,13 @@ export const getCardById = async (req: Request, res: Response) => {
     
     res.json(data);
   } catch (error) {
-    console.error(`Failed to fetch card details for ${id}:`, error);
-    res.status(404).json({
-      data: {
-        id,
-        name: "Card Unavailable",
-        images: {
-          small: "/placeholder-card.png",
-          large: "/placeholder-card.png",
-        },
-      },
-    });
+    console.error(`Failed to fetch card details for ${id}, usando mock:`, error);
+    return getCardByIdMock(req, res);
   }
 };
 
 // Controlador para obtener todos los sets
 export const getSets = async (req: Request, res: Response) => {
-  // Verificar si la API externa está disponible
-  const isAPIHealthy = await checkAPIHealth();
-  if (!isAPIHealthy) {
-    console.log('🔄 API externa no disponible, usando datos mock para sets');
-    return getSetsMock(req, res);
-  }
-
   try {
     const cacheKey = 'pokemon:sets:all';
     
@@ -239,23 +206,13 @@ export const getSets = async (req: Request, res: Response) => {
 
     res.json(result);
   } catch (error) {
-    console.error("Error fetching sets:", error);
-    res.status(500).json({
-      error: "Failed to fetch sets",
-      data: [],
-    });
+    console.error("Error fetching sets, usando mock:", error);
+    return getSetsMock(req, res);
   }
 };
 
 // Controlador para obtener todos los tipos
 export const getTypes = async (req: Request, res: Response) => {
-  // Verificar si la API externa está disponible
-  const isAPIHealthy = await checkAPIHealth();
-  if (!isAPIHealthy) {
-    console.log('🔄 API externa no disponible, usando datos mock para tipos');
-    return getTypesMock(req, res);
-  }
-
   try {
     const cacheKey = 'pokemon:types:all';
     
@@ -274,21 +231,14 @@ export const getTypes = async (req: Request, res: Response) => {
     
     res.json(response);
   } catch (error) {
-    console.error("Error fetching types:", error);
-    res.status(500).json({ error: "Failed to fetch types", data: [] });
+    console.error("Error fetching types, usando mock:", error);
+    return getTypesMock(req, res);
   }
 };
 
 // Controlador para obtener raridades
 // Controlador para obtener todas las rarezas
 export const getRarities = async (req: Request, res: Response) => {
-  // Verificar si la API externa está disponible
-  const isAPIHealthy = await checkAPIHealth();
-  if (!isAPIHealthy) {
-    console.log('🔄 API externa no disponible, usando datos mock para rarezas');
-    return getRaritiesMock(req, res);
-  }
-
   try {
     const cacheKey = 'pokemon:rarities:all';
     
@@ -307,8 +257,8 @@ export const getRarities = async (req: Request, res: Response) => {
 
     res.json(response);
   } catch (error) {
-    console.error("Error fetching rarities:", error);
-    res.status(500).json({ error: "Failed to fetch rarities", data: [] });
+    console.error("Error fetching rarities, usando mock:", error);
+    return getRaritiesMock(req, res);
   }
 };
 
